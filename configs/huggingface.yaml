@@ -1,0 +1,267 @@
+# Hugging Face Configuration
+# Configuration file for Hugging Face model management and deployment
+
+# =============================================
+# 1. Authentication Settings
+# =============================================
+auth:
+  # Token-based authentication (recommended)
+  # Get your token from: https://huggingface.co/settings/tokens
+  token: "${HF_TOKEN}"  # Use environment variable for security
+  
+  # Authentication method: 'token' or 'oauth'
+  method: "token"
+  
+  # Access level: 'read', 'write', 'admin'
+  # - read: Can only download models
+  # - write: Can upload and update models
+  # - admin: Full access including team management
+  access_level: "write"
+  
+  # Whether to validate authentication on startup
+  validate_on_startup: true
+  
+  # Timeout for authentication requests (in seconds)
+  timeout: 30
+
+# =============================================
+# 2. Model Repository Configuration
+# =============================================
+repository:
+  # Organization or user name to use for model uploads
+  # Leave null to use your personal account
+  organization: null  # e.g., "my-organization"
+  
+  # Default model repository settings
+  defaults:
+    # Default visibility for new models: 'public' or 'private'
+    visibility: "private"
+    
+    # Default license for models (SPDX identifier)
+    # See: https://spdx.org/licenses/
+    license: "apache-2.0"  # Apache License 2.0
+    
+    # Default space hardware for apps: 'cpu-basic', 'cpu-upgrade', 'gpu-basic', 'gpu-t4', 'gpu-a10', 'gpu-a100'
+    space_hardware: "cpu-basic"
+    
+    # Default tags for models (helps with discoverability)
+    tags: ["mlops", "production"]
+  
+  # Local repository path settings
+  local:
+    # Base directory for storing local model files before pushing
+    base_dir: "./models/hf_repos"
+    
+    # Directory for model card templates
+    model_card_templates: "./templates/model_cards"
+    
+    # Directory for README templates
+    readme_templates: "./templates/readmes"
+
+# =============================================
+# 3. Model Versioning Settings
+# =============================================
+versioning:
+  # Enable git-based versioning
+  enable_git_versioning: true
+  
+  # Version naming strategy
+  # Options: 'semantic', 'timestamp', 'incremental', 'mlflow'
+  version_strategy: "semantic"
+  
+  # Version naming formats
+  formats:
+    semantic: "v{major}.{minor}.{patch}"  # e.g., v1.2.3
+    timestamp: "{year}.{month}.{day}.{hour}{minute}"  # e.g., 2025.05.07.1430
+    incremental: "model-{number}"  # e.g., model-42
+    mlflow: "run-{run_id}"  # Based on MLflow run ID
+  
+  # Version tagging
+  tagging:
+    # Whether to tag releases
+    enabled: true
+    
+    # Tag for production models
+    production_tag: "production"
+    
+    # Tag for staging models
+    staging_tag: "staging"
+    
+    # Tag for latest model
+    latest_tag: "latest"
+  
+  # Version history
+  history:
+    # Whether to keep version history
+    track_history: true
+    
+    # Maximum number of versions to keep (null = unlimited)
+    max_versions: 10
+    
+    # Whether to archive old versions
+    archive_old_versions: true
+
+# =============================================
+# 4. Deployment Configuration (Inference Endpoints)
+# =============================================
+deployment:
+  # Inference Endpoints configuration
+  inference_endpoints:
+    # Enable Inference Endpoints
+    enabled: true
+    
+    # Default instance type
+    # Options: 'cpu-basic', 'cpu-medium', 'cpu-large', 'gpu-t4-small', 'gpu-t4-medium',
+    #          'gpu-a10g-small', 'gpu-a10g-medium', 'gpu-a10g-large', 'gpu-a100-small'
+    instance_type: "cpu-medium"
+    
+    # Autoscaling configuration
+    autoscaling:
+      enabled: true
+      min_replicas: 1
+      max_replicas: 5
+      target_utilization: 75  # Percentage
+    
+    # Security configuration
+    security:
+      # Authentication required to call the endpoint
+      # Options: 'none', 'token', 'basic', 'oauth'
+      auth_type: "token"
+      
+      # Enable CORS
+      enable_cors: false
+      
+      # Allowed origins for CORS (if enabled)
+      allowed_origins: ["https://example.com"]
+    
+    # Monitoring configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Metrics to track
+      metrics: ["latency", "throughput", "error_rate", "memory_usage", "gpu_utilization"]
+      
+      # Log predictions (be careful with sensitive data)
+      log_predictions: false
+    
+    # Deployment strategy
+    strategy:
+      # Options: 'rolling', 'blue_green', 'canary'
+      type: "rolling"
+      
+      # Percentage of traffic for canary deployment
+      canary_percentage: 20
+      
+      # Automatic rollback on failure
+      auto_rollback: true
+
+# =============================================
+# 5. Webhook Settings
+# =============================================
+webhooks:
+  # Enable webhooks for model events
+  enabled: false
+  
+  # Webhook URL to receive event notifications
+  url: "https://example.com/webhooks/huggingface"
+  
+  # Secret for webhook signature verification
+  secret: "${HF_WEBHOOK_SECRET}"
+  
+  # Events to trigger webhooks
+  events:
+    # Model pushed to Hub
+    model_push: true
+    
+    # Model pulled from Hub
+    model_pull: false
+    
+    # Model downloaded
+    model_download: false
+    
+    # Inference endpoint created
+    endpoint_created: true
+    
+    # Inference endpoint status changed
+    endpoint_status_changed: true
+    
+    # Space created or updated
+    space_update: false
+  
+  # Retry configuration for failed webhook deliveries
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_factor: 2  # Exponential backoff
+
+# =============================================
+# 6. Cache Configuration
+# =============================================
+cache:
+  # Enable model caching
+  enabled: true
+  
+  # Cache directory for downloaded models and weights
+  directory: "./cache/huggingface"
+  
+  # Maximum cache size (in GB, 0 = unlimited)
+  max_size: 10
+  
+  # Cache strategy when max_size is reached
+  # Options: 'lru' (least recently used), 'lfu' (least frequently used)
+  strategy: "lru"
+  
+  # Whether to use cached models in offline mode
+  use_offline: true
+  
+  # Whether to ignore cache and force redownload
+  force_download: false
+  
+  # How long to keep cached files (in days, 0 = forever)
+  ttl_days: 30
+  
+  # Whether to verify cached files with checksums
+  verify_checksums: true
+
+# =============================================
+# 7. API Rate Limiting Settings
+# =============================================
+rate_limiting:
+  # Enable rate limiting for API calls
+  enabled: true
+  
+  # Maximum requests per minute
+  max_requests_per_minute: 100
+  
+  # Retry strategy
+  retry:
+    # Enable automatic retries
+    enabled: true
+    
+    # Maximum number of retries
+    max_attempts: 5
+    
+    # Initial backoff time (in seconds)
+    initial_backoff: 1.0
+    
+    # Backoff factor for exponential backoff
+    backoff_factor: 2.0
+    
+    # Maximum backoff time (in seconds)
+    max_backoff: 60.0
+    
+    # Whether to add jitter to backoff times
+    jitter: true
+  
+  # Batch processing
+  batch:
+    # Enable batching of API requests
+    enabled: true
+    
+    # Maximum batch size
+    max_batch_size: 10
+    
+    # Batch processing window (in seconds)
+    window_seconds: 1.0
+

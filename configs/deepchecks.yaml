@@ -1,0 +1,340 @@
+# Deepchecks Configuration File
+# This file configures various checks for model validation and monitoring
+
+# Global Configuration
+# -------------------
+# Settings that apply to all checks
+global:
+  # Output settings
+  output:
+    save_path: "./reports/deepchecks"  # Directory to save check results
+    format: "html"  # Output format options: html, json, wandb, mlflow
+    auto_open: false  # Whether to open HTML reports automatically
+  
+  # Sampling settings (for large datasets)
+  sampling:
+    n_samples: 10000  # Maximum number of samples to use for checks
+    random_state: 42  # Random seed for reproducibility
+  
+  # Threshold settings
+  threshold_config:
+    default_failure_threshold: 0.7  # Default threshold for check failure
+    default_warning_threshold: 0.9  # Default threshold for check warnings
+
+# =============================================
+# 1. Data Validation
+# =============================================
+# Checks for data integrity, schema, and distributions
+data_validation:
+  # Enable/disable data validation suite
+  enabled: true
+  
+  # Integrity checks
+  # ---------------
+  # Verify basic properties of the data
+  integrity:
+    # Check for missing values
+    missing_values:
+      enabled: true
+      max_missing_percent: 15.0  # Max allowed percentage of missing values
+      columns_to_ignore: []  # Columns to exclude from missing value check
+    
+    # Check for duplicate samples
+    duplicates:
+      enabled: true
+      max_duplicate_percent: 1.0  # Max allowed percentage of duplicate rows
+      columns_to_consider: null  # Specific columns to consider for duplication (null = all)
+    
+    # Check for outliers
+    outliers:
+      enabled: true
+      method: "IQR"  # IQR, z_score, or isolation_forest
+      threshold: 3.0  # Threshold for outlier detection
+      columns_to_check: null  # Specific columns to check (null = all numeric)
+  
+  # Schema checks
+  # ------------
+  # Ensure data adheres to expected schema
+  schema:
+    # Check column types
+    column_types:
+      enabled: true
+      # Expected types per column (comment out and customize as needed)
+      # expected_types:
+      #   numeric_feature: "numeric"
+      #   categorical_feature: "categorical"
+      #   date_feature: "datetime"
+    
+    # Check for new or missing columns
+    column_existence:
+      enabled: true
+      # Columns that must exist
+      required_columns: []  # List of columns that must exist in the dataset
+    
+    # Check for categorical values
+    categorical_values:
+      enabled: true
+      # Maximum allowed new categories as percentage
+      max_new_categories_ratio: 0.1
+      # Columns to check (null = all categorical)
+      columns_to_check: null
+  
+  # Distribution checks
+  # -----------------
+  # Verify data distributions
+  distributions:
+    # Check for feature distributions
+    feature_distribution:
+      enabled: true
+      # Distribution check method: KS, Cramer, PSI, etc.
+      method: "KS"
+      # Threshold for distribution drift
+      threshold: 0.1
+      # Columns to check (null = all)
+      columns_to_check: null
+    
+    # Check for label distribution
+    label_distribution:
+      enabled: true
+      # Max allowed drift in label distribution
+      max_drift: 0.1
+
+# =============================================
+# 2. Train-Test Validation
+# =============================================
+# Checks for differences between training and test datasets
+train_test_validation:
+  # Enable/disable train-test validation suite
+  enabled: true
+  
+  # Dataset drift checks
+  # -------------------
+  dataset_drift:
+    # Feature drift
+    feature_drift:
+      enabled: true
+      # Drift detection method: KS, Jensen-Shannon, etc.
+      method: "KS"
+      # P-value threshold for drift detection
+      threshold: 0.05
+      # Ignore columns
+      ignore_columns: []
+    
+    # Label drift
+    label_drift:
+      enabled: true
+      # Drift detection method
+      method: "Jensen-Shannon"
+      # Threshold for label drift
+      threshold: 0.05
+  
+  # Feature importance checks
+  # ------------------------
+  feature_importance:
+    # Feature importance comparison between train and test
+    feature_importance_comparison:
+      enabled: true
+      # Importance calculation method: permutation, SHAP
+      method: "permutation"
+      # Number of permutations
+      n_permutations: 10
+      # Min importance to consider
+      min_importance: 0.01
+    
+    # Check for unused features
+    unused_features:
+      enabled: true
+      # Importance threshold below which features are considered unused
+      importance_threshold: 0.01
+  
+  # Data leakage checks
+  # ------------------
+  data_leakage:
+    # Check for target leakage
+    target_leakage:
+      enabled: true
+      # Maximum allowed correlation with target for non-feature columns
+      max_correlation: 0.7
+      # Columns to exclude from leakage check
+      exclude_columns: []
+    
+    # Check for train-test contamination
+    train_test_contamination:
+      enabled: true
+      # Method to detect contamination: fingerprinting, similarity
+      method: "fingerprinting"
+      # Threshold for contamination detection
+      threshold: 0.05
+
+# =============================================
+# 3. Model Validation
+# =============================================
+# Checks for model performance and behavior
+model_validation:
+  # Enable/disable model validation suite
+  enabled: true
+  
+  # Performance metrics
+  # ------------------
+  performance:
+    # Classification metrics
+    classification_metrics:
+      enabled: true
+      # Metrics to compute
+      metrics:
+        - accuracy
+        - precision
+        - recall
+        - f1
+        - auc
+      # Minimum acceptable values
+      min_values:
+        accuracy: 0.7
+        precision: 0.7
+        recall: 0.7
+        f1: 0.7
+        auc: 0.75
+    
+    # Regression metrics (for regression models)
+    regression_metrics:
+      enabled: false  # Set to true for regression models
+      # Metrics to compute
+      metrics:
+        - rmse
+        - mae
+        - r2
+        - mape
+      # Maximum acceptable error values
+      max_values:
+        rmse: 0.3
+        mae: 0.25
+        mape: 20.0
+      # Minimum acceptable R² value
+      min_values:
+        r2: 0.6
+  
+  # Confusion matrix analysis
+  # -----------------------
+  confusion_matrix:
+    enabled: true
+    # Normalize confusion matrix
+    normalize: true
+    # Minimum acceptable values per class
+    min_per_class_precision: 0.6
+    min_per_class_recall: 0.6
+  
+  # Calibration checks
+  # -----------------
+  calibration:
+    enabled: true
+    # Maximum allowed calibration error
+    max_calibration_error: 0.1
+    # Calibration method: isotonic, sigmoid
+    method: "isotonic"
+    # Number of bins for calibration
+    n_bins: 10
+  
+  # Model comparison
+  # --------------
+  model_comparison:
+    enabled: true
+    # Metrics to use for comparison
+    comparison_metrics:
+      - f1
+      - auc
+    # Minimum improvement required for a model to be considered better
+    min_improvement: 0.02
+    # Storage path for model comparison results
+    comparison_path: "./reports/model_comparison"
+
+# =============================================
+# 4. Production Monitoring
+# =============================================
+# Configurations for monitoring models in production
+production_monitoring:
+  # Enable/disable production monitoring
+  enabled: true
+  
+  # Data drift detection
+  # ------------------
+  data_drift:
+    enabled: true
+    # Window size for drift calculation (in samples)
+    window_size: 1000
+    # Reference dataset path or table
+    reference_dataset: "./data/reference_data.parquet"
+    # Drift detection algorithm
+    algorithm: "kolmogorov_smirnov"
+    # Threshold for drift alerting
+    drift_threshold: 0.05
+    # Features to monitor for drift (null = all)
+    features_to_monitor: null
+  
+  # Concept drift detection
+  # ---------------------
+  concept_drift:
+    enabled: true
+    # Window size for concept drift detection
+    window_size: 1000
+    # Method for concept drift detection: performance_drop, label_distribution
+    method: "performance_drop"
+    # Threshold for alerting
+    alert_threshold: 0.1
+  
+  # Performance monitoring
+  # --------------------
+  performance_monitoring:
+    enabled: true
+    # Metrics to track in production
+    metrics_to_track:
+      - accuracy
+      - precision
+      - recall
+      - f1
+    # Alert thresholds for each metric
+    alert_thresholds:
+      accuracy: 0.7
+      precision: 0.7
+      recall: 0.7
+      f1: 0.7
+    # Window size for calculating metrics
+    window_size: 1000
+  
+  # Monitoring schedule
+  # -----------------
+  schedule:
+    # How often to run monitoring checks
+    frequency: "hourly"  # options: hourly, daily, weekly
+    # Whether to run on a fixed schedule
+    fixed_schedule: true
+    # Custom cron expression for more complex schedules
+    # cron_expression: "0 */4 * * *"  # Every 4 hours
+  
+  # Alerting configuration
+  # --------------------
+  alerting:
+    enabled: true
+    # Alert channels
+    channels:
+      # Email alerts
+      email:
+        enabled: false
+        recipients: []
+      # Slack alerts
+      slack:
+        enabled: false
+        webhook_url: ""
+        channel: "#model-alerts"
+      # Custom webhook
+      webhook:
+        enabled: false
+        url: ""
+    # Alert severity levels
+    severity_levels:
+      critical:
+        threshold: 0.05  # p-value threshold for critical alerts
+        actions: ["email", "slack"]  # actions to take for critical alerts
+      warning:
+        threshold: 0.1  # p-value threshold for warning alerts
+        actions: ["slack"]  # actions to take for warning alerts
+

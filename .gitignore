@@ -1,0 +1,157 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+pytest-report.xml
+junit.xml
+
+# Virtual environments
+env/
+venv/
+ENV/
+.env
+.venv
+env.bak/
+venv.bak/
+pythonenv*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+*.ipynb
+!examples/*.ipynb
+
+# VS Code settings
+.vscode/
+.vs/
+
+# PyCharm/IntelliJ settings
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# MLflow
+mlruns/
+outputs/
+mlartifacts/
+mlflow-env/
+mlflow.db
+mlruns.db
+
+# Prefect
+.prefectignore
+.prefect/
+__prefect_output__/
+flow_runs/
+prefect.yaml
+!configs/prefect.yaml
+!configs/prefect.toml
+
+# Common data formats
+*.csv
+*.tsv
+*.parquet
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.db
+*.sqlite
+*.sqlite3
+!examples/*.csv
+!examples/*.tsv
+!examples/*.parquet
+
+# Model files
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
+*.savedmodel
+*.h5
+*.hdf5
+*.keras
+!examples/models/*.pt
+!examples/models/*.onnx
+
+# Feast
+feast_registry.db
+feast-repo/
+data/online/
+!configs/feast/
+
+# Evidently
+evidently_metrics/
+monitoring_metrics/
+monitoring_reports/
+!examples/monitoring_dashboard.ipynb
+
+# Deepchecks
+deepchecks_reports/
+
+# Credentials and secrets
+.env
+.secrets
+*.pem
+*.key
+secrets/
+credentials/
+configs/*credentials*
+configs/*secrets*
+
+# Logs
+logs/
+*.log
+log/
+
+# Hugging Face
+.huggingface/
+!configs/huggingface.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+

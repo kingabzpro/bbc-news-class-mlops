@@ -1,0 +1,137 @@
+# Prefect Configuration File
+# This file contains configuration settings for Prefect workflows
+
+# API and Server Configuration
+# ----------------------------
+# Settings related to connecting to a Prefect API server
+[prefect.api]
+url = "http://127.0.0.1:4200/api"  # Prefect API URL (local server default)
+# url = "${PREFECT_API_URL}"  # Use environment variable for production
+
+# Heartbeat interval in seconds for flow runs to send liveness signals
+heartbeat_interval_seconds = 30
+
+# Connection timeout in seconds for API requests
+request_timeout = 30
+
+# Maximum retries for API connection attempts
+max_retries = 3
+
+# Flow Run Concurrency Settings
+# ----------------------------
+# Control how many flows can run simultaneously
+[prefect.flow_run]
+# Default concurrency limits
+max_concurrent_flow_runs = 10  # Maximum number of concurrent flow runs
+max_concurrent_task_runs_per_flow = 100  # Maximum concurrent tasks per flow
+
+# Default flow run tags that will be applied to all flows
+default_tags = ["mlops-template", "production"]
+
+# Storage Configuration
+# ----------------------------
+# Where flow data, results, and artifacts are stored
+[prefect.storage]
+# Base directory for local file system storage
+base_dir = "./prefect_storage"
+
+# Storage type (local, s3, azure, gcs, etc.)
+type = "local"  # For production, consider using s3, azure, or gcs
+
+# Block storage configuration for cloud deployments (uncomment for production)
+# [prefect.storage.s3]
+# bucket_name = "prefect-flows"
+# aws_access_key_id = "${AWS_ACCESS_KEY_ID}"
+# aws_secret_access_key = "${AWS_SECRET_ACCESS_KEY}"
+# region_name = "us-east-1"
+
+# [prefect.storage.azure]
+# container_name = "prefect"
+# connection_string = "${AZURE_STORAGE_CONNECTION_STRING}"
+
+# Logging Configuration
+# ----------------------------
+# Control how Prefect logs are handled
+[prefect.logging]
+# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+level = "INFO"
+
+# Format for log messages
+format = "%(asctime)s %(name)s %(levelname)s: %(message)s"
+
+# Write logs to a file
+# Enable by uncommenting the following lines
+# write_to_file = true
+# directory = "./logs"
+# filename = "prefect.log"
+
+# Task Runner Settings
+# ----------------------------
+# Configure how tasks are executed
+[prefect.task_runner]
+# Default task runner (options: concurrent, dask, ray)
+type = "concurrent"
+
+# Maximum number of concurrent tasks when using the concurrent task runner
+max_workers = 8
+
+# For Dask task runner (uncomment to use)
+# [prefect.task_runner.dask]
+# cluster_kwargs = { n_workers = 4 }
+# scheduler_address = "tcp://localhost:8786"  # For connecting to existing cluster
+
+# Default Project Settings
+# ----------------------------
+# Settings for the default project
+[prefect.default_project]
+name = "mlops-project"
+description = "MLOps Project using Prefect for orchestration"
+
+# Default Blocks Configuration
+# ----------------------------
+# Pre-configured blocks for common operations
+[prefect.blocks]
+
+# Database connection block (example for SQL database)
+[prefect.blocks.database]
+name = "mlops-database"
+type = "sqlalchemy"
+connection_url = "sqlite:///data/database.db"  # Use real DB in production
+# connection_url = "${DATABASE_URL}"  # For production environments
+secret = false  # Set to true if the connection contains secrets
+
+# S3 storage block (for storing data, models, etc.)
+# [prefect.blocks.s3]
+# name = "s3-bucket"
+# bucket_name = "mlops-data"
+# aws_access_key_id = "${AWS_ACCESS_KEY_ID}"
+# aws_secret_access_key = "${AWS_SECRET_ACCESS_KEY}"
+# region_name = "us-east-1"
+
+# Slack notification block (for alerting on flow status)
+# [prefect.blocks.slack_webhook]
+# name = "slack-alerts"
+# url = "${SLACK_WEBHOOK_URL}"
+
+# Environment Variable Configuration
+# ----------------------------
+# Environment variables needed by flows
+[prefect.env]
+# MLFLOW_TRACKING_URI = "http://localhost:5000"  # MLflow tracking server
+# DATABASE_URL = "postgresql://user:pass@localhost:5432/mlops"  # Database URL
+# FEAST_FEATURE_STORE = "./feature_repo"  # Feast feature store path
+
+# Deployment Settings
+# ----------------------------
+# Default settings for flow deployments
+[prefect.deployments]
+default_work_queue_name = "default"
+default_agent_work_queues = ["default", "ml-training", "ml-inference"]
+
+# Scheduling Settings
+# ----------------------------
+# Default settings for flow scheduling
+[prefect.scheduling]
+# Default timezone for scheduled flows
+timezone = "UTC"
+

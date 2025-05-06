@@ -1,0 +1,26 @@
+# Production dependencies
+
+# Core ML & Data
+numpy>=1.22.0
+pandas>=2.0.0
+scikit-learn>=1.2.0
+
+# MLOps Tools
+mlflow>=2.17.0
+prefect>=3.0.0
+feast>=0.31.0
+deepchecks>=0.17.0
+evidently>=0.4.0
+
+# Serving & API
+fastapi>=0.95.0
+uvicorn>=0.17.0
+pydantic>=2.0.0
+
+# Model Deployment
+huggingface-hub>=0.19.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+

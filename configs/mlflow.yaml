@@ -1,0 +1,74 @@
+# MLflow Configuration
+# This file contains configuration for MLflow tracking, registry and artifact storage
+
+# Server Configuration
+# For production deployments, set host to 0.0.0.0 to allow external connections
+server:
+  host: 127.0.0.1  # Use 0.0.0.0 for production to allow external connections
+  port: 5000  # Default MLflow server port
+  workers: 4  # Number of worker processes
+  enable_cors: true  # Allow cross-origin requests
+  
+# Artifact Store Configuration
+# Local file system path for storing artifacts (models, datasets, etc.)
+# For production, consider using cloud storage (S3, Azure Blob, GCS)
+artifact_root: "./mlruns/artifacts"  # Local path for artifacts
+
+# Backend Store Configuration
+# SQLite for local development, consider MySQL/PostgreSQL for production
+backend_store_uri: "sqlite:///mlruns.db"  # SQLite database for tracking
+# backend_store_uri: "postgresql://username:password@localhost:5432/mlflow"  # Example PostgreSQL
+
+# Default Experiment Settings
+default_experiment:
+  name: "default"  # Name of the default experiment
+  artifact_location: "./mlruns/0"  # Artifact location for default experiment
+  lifecycle_stage: "active"  # active or deleted
+
+# S3 Artifact Storage Configuration (Uncomment and configure for production)
+# s3:
+#   endpoint_url: "https://s3.amazonaws.com"  # S3 endpoint URL
+#   access_key_id: "${AWS_ACCESS_KEY_ID}"  # AWS access key, use env vars for security
+#   secret_access_key: "${AWS_SECRET_ACCESS_KEY}"  # AWS secret key
+#   ignore_tls_verification: false  # Set to true if using self-signed certs
+#   bucket: "my-mlflow-bucket"  # S3 bucket for storing artifacts
+#   prefix: "mlflow/artifacts"  # Prefix within the bucket
+
+# Azure Blob Storage Configuration (Uncomment for Azure)
+# azure:
+#   storage_account: "${AZURE_STORAGE_ACCOUNT}"
+#   storage_access_key: "${AZURE_STORAGE_ACCESS_KEY}"
+#   container: "mlflow-artifacts"
+
+# Model Registry Settings
+model_registry:
+  registry_store_uri: "sqlite:///mlruns.db"  # Same as backend by default
+  # registry_store_uri: "postgresql://username:password@localhost:5432/mlflow"  # For production
+  
+  # Uncomment for remote registry with different credentials
+  # registry_credentials:
+  #   username: "mlflow_user"
+  #   password: "mlflow_password"
+  
+  sync_registry_to_artifacts: true  # Sync registry models to artifact store
+
+# Logging Configuration
+logging:
+  level: "INFO"  # Logging level: DEBUG, INFO, WARNING, ERROR
+  file: "./logs/mlflow.log"  # Log file path
+
+# MLflow Tracking Authentication
+# Uncomment for enabling authentication in production
+# auth:
+#   enabled: true
+#   type: "basic"  # basic, ldap, or custom
+#   basic_auth_credentials:
+#     username: "admin"
+#     password: "password"  # Use env vars in production
+
+# Environment Variables
+# Environment variables can be set here or passed through the OS
+# environment:
+#   MLFLOW_TRACKING_URI: "http://localhost:5000"
+#   MLFLOW_S3_ENDPOINT_URL: "https://s3.amazonaws.com"
+

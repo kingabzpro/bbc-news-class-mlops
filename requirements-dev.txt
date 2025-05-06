@@ -1,0 +1,22 @@
+# Development dependencies 
+
+# Production and test dependencies
+-r requirements-test.txt
+
+# Code Quality and Formatting
+black>=24.0.0
+isort>=5.10.0
+mypy>=1.8.0
+pylint>=3.0.0
+pre-commit>=3.0.0
+
+# Jupyter and Interactive Development
+jupyterlab>=4.0.0
+ipykernel>=6.0.0
+
+# Documentation
+mkdocs>=1.4.0
+mkdocs-material>=9.0.0
+mkdocstrings>=0.20.0
+mkdocs-jupyter>=0.24.0
+

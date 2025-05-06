@@ -1,0 +1,164 @@
+# Feast Feature Store Configuration
+# This file configures the Feast feature store for feature management and serving
+
+# Project Configuration
+# ---------------------
+# Basic metadata for the feature store
+project: mlops-feature-store  # Project name (unique identifier for this feature store)
+registry: data/registry.db  # Path to the registry database
+    # For production, consider using a more robust registry:
+    # registry: s3://my-bucket/feast/registry.db
+
+# Provider Configuration
+# ---------------------
+# Provider defines infrastructure used by Feast
+provider: local  # Options: local, aws, gcp, azure
+    # local: Uses local file system and SQLite
+    # aws: Uses S3 for offline store and DynamoDB for online store
+    # gcp: Uses GCS/BigQuery for offline store and Datastore for online store
+    # azure: Uses Azure Blob Storage for offline store and Azure Table Storage for online store
+
+# Online Store Configuration
+# ---------------------
+# The database used to serve features at low latency
+online_store:
+    type: sqlite  # Default: SQLite for development
+    path: data/online_store.db  # Path to SQLite file
+    
+    # Redis Online Store Configuration (uncomment for production)
+    # type: redis
+    # connection_string: redis://localhost:6379/0
+    # key_ttl_seconds: 86400  # 24 hours TTL for keys
+    
+    # DynamoDB Online Store (for AWS deployments)
+    # type: dynamodb
+    # region: us-east-1
+    # table_name: feast_online_store
+    # aws_access_key_id: ${AWS_ACCESS_KEY_ID}  # Use environment variables
+    # aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    
+    # Datastore Online Store (for GCP deployments)
+    # type: datastore
+    # project_id: my-gcp-project
+    # namespace: feast
+    # write_concurrency: 40
+    # write_batch_size: 50
+
+# Offline Store Configuration
+# ---------------------
+# Storage for historical feature values used for training datasets
+offline_store:
+    type: file  # Default: File for development
+    file_options:
+        file_format: parquet  # Options: parquet, csv
+        file_url_scheme: file  # Filesystem scheme (file, s3, gs)
+    
+    # BigQuery Offline Store (for GCP deployments)
+    # type: bigquery
+    # dataset: feast_features
+    # project_id: my-gcp-project
+    # location: US  # BigQuery location
+    
+    # Redshift Offline Store (for AWS deployments)
+    # type: redshift
+    # cluster_id: my-redshift-cluster
+    # region: us-east-1
+    # user: admin
+    # database: feast
+    # s3_staging_location: s3://my-bucket/redshift-staging/
+    # iam_role: arn:aws:iam::account-id:role/rolename
+    
+    # Snowflake Offline Store
+    # type: snowflake
+    # account: myaccount
+    # user: myuser
+    # password: ${SNOWFLAKE_PASSWORD}
+    # role: ACCOUNTADMIN
+    # warehouse: COMPUTE_WH
+    # database: FEAST
+    # schema: PUBLIC
+
+# Feature Server Configuration
+# ---------------------
+# Settings for the feature server (REST API for online serving)
+feature_server:
+    enabled: true  # Set to true to enable the feature server
+    host: 0.0.0.0  # Bind to all interfaces
+    port: 6566  # Default port for Feast feature server
+    
+    # Authentication (uncomment for production)
+    # auth_provider: oauth
+    # oauth_config:
+    #     type: jwt
+    #     audience: feast
+    #     issuer: https://myorg.auth0.com/
+    #     jwks_uri: https://myorg.auth0.com/.well-known/jwks.json
+
+# Feature Retrieval Configuration
+# ---------------------
+# Settings for how features are retrieved during serving
+feature_retrieval:
+    # Batching configuration for online fetching
+    batch_size: 100  # Number of entity rows to process in a batch
+    timeout_seconds: 10  # Timeout for feature retrieval
+    
+    # Cache configuration
+    cache:
+        enabled: true
+        ttl_seconds: 60  # Cache TTL in seconds
+        max_size: 1000  # Maximum number of items in cache
+
+# Entity Key Serialization
+# ---------------------
+# Controls how entity keys are serialized/deserialized
+entity_key_serialization:
+    # Strategy options: 
+    # - protobuf (default, recommended for production)
+    # - json (human readable but slower)
+    # - avro (compact binary format, good for high throughput)
+    strategy: protobuf
+    
+# Offline to Online Materialization
+# ---------------------
+# Configuration for materializing features from offline to online store
+materialization:
+    batch_size: 10000  # Number of rows to process in a batch
+    parallelism: 4  # Number of concurrent threads/processes
+
+# YAML Entities and Sources Configuration
+# ---------------------
+# Paths to feature definitions relative to this configuration file
+# (Alternative to Python feature definitions)
+yaml_configs:
+    - "../features/entities.yaml"
+    - "../features/data_sources.yaml"
+    - "../features/feature_views.yaml"
+    - "../features/feature_services.yaml"
+
+# Feature Logging (for monitoring)
+# ---------------------
+# Configuration for logging feature values during serving
+feature_logging:
+    enabled: false  # Set to true to enable feature logging
+    # destination: bigquery  # Options: bigquery, file, custom
+    # bigquery:
+    #     project_id: my-gcp-project
+    #     dataset: feast_logs
+    #     table: feature_logs
+    
+# Infrastructure Options
+# ---------------------
+# Additional infrastructure-specific configurations
+flags:
+    # Alpha features
+    enable_auth: false  # Enable authentication/authorization
+    enable_feature_versions: true  # Enable feature versioning
+    on_demand_transforms: true  # Enable on-demand transformations
+
+# Feature Repo Configuration
+# ---------------------
+# Configuration for the feature repository
+repo_config:
+    template_path: "templates/"  # Path to feature templates
+    registry_ttl_seconds: 86400  # Registry cache TTL
+

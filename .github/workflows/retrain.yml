@@ -1,0 +1,940 @@
+name: Model Retraining
+
+# Define when the workflow will run
+on:
+  # Run on a schedule (weekly on Sunday at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+  
+  # Allow manual triggering for on-demand retraining
+  workflow_dispatch:
+    inputs:
+      data_cutoff_days:
+        description: 'Number of days of data to use for training'
+        required: true
+        default: '90'
+        type: number
+      force_register:
+        description: 'Force model registration even if performance is worse'
+        required: false
+        default: false
+        type: boolean
+
+# Environment variables used across the workflow jobs
+env:
+  PYTHON_VERSION: "3.9"
+  MODEL_NAME: "mlops-model"
+  EXPERIMENT_NAME: "model-retraining"
+  MLFLOW_TRACKING_URI: "http://localhost:5000"  # Replace with your MLflow server
+  DATA_SOURCE_URI: "data/source"  # Replace with your data source location
+
+jobs:
+  # First job: Prepare data for retraining
+  prepare-data:
+    name: Prepare Training Data
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          lfs: true  # Enable Git LFS for data files
+      
+      # Step 2: Set up Python with the specified version
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install -r requirements-prod.txt
+          # Install additional data processing packages if needed
+          uv pip install pandas dvc
+      
+      # Step 4: Set up authentication for data sources (if needed)
+      - name: Configure data source authentication
+        env:
+          DATA_SOURCE_CREDENTIALS: ${{ secrets.DATA_SOURCE_CREDENTIALS }}
+        run: |
+          # This step would typically set up credentials for your data source
+          # For example, setting up AWS credentials, database connection strings, etc.
+          echo "Setting up data source authentication"
+          # Example for AWS:
+          # aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
+          # For demonstration, we'll just create a directory
+          mkdir -p ${{ env.DATA_SOURCE_URI }}
+      
+      # Step 5: Fetch new training data
+      - name: Fetch new training data
+        id: fetch-data
+        env:
+          DATA_CUTOFF_DAYS: ${{ github.event.inputs.data_cutoff_days || '90' }}
+        run: |
+          echo "Fetching training data for the last $DATA_CUTOFF_DAYS days"
+          
+          # This is a placeholder. In a real project, you would:
+          # 1. Connect to your data source (database, data lake, API, etc.)
+          # 2. Extract the latest data
+          # 3. Process and prepare it for training
+          
+          # For demonstration, we'll simulate this with a Python script:
+          python -c "
+          import os
+          import pandas as pd
+          import numpy as np
+          from datetime import datetime, timedelta
+          from sklearn.datasets import make_classification
+          
+          # Create a data directory
+          os.makedirs('data/processed', exist_ok=True)
+          
+          # Generate synthetic data as an example
+          # In a real project, you would load data from your data source
+          cutoff_days = int(os.environ.get('DATA_CUTOFF_DAYS', 90))
+          end_date = datetime.now()
+          start_date = end_date - timedelta(days=cutoff_days)
+          
+          # Generate dates for the data
+          dates = pd.date_range(start=start_date, end=end_date, freq='D')
+          
+          # Create synthetic features and target
+          n_samples = len(dates) * 100  # 100 samples per day
+          X, y = make_classification(
+              n_samples=n_samples,
+              n_features=20,
+              n_informative=10,
+              n_redundant=5,
+              random_state=42
+          )
+          
+          # Create a DataFrame with the data
+          df = pd.DataFrame(X, columns=[f'feature_{i}' for i in range(X.shape[1])])
+          df['target'] = y
+          
+          # Add date column (repeated for each day's samples)
+          df['date'] = np.repeat(dates, 100)
+          
+          # Split into train and test sets (last 7 days as test)
+          test_start = end_date - timedelta(days=7)
+          train_df = df[df['date'] < test_start]
+          test_df = df[df['date'] >= test_start]
+          
+          # Save the datasets
+          train_df.to_parquet('data/processed/train_data.parquet')
+          test_df.to_parquet('data/processed/test_data.parquet')
+          
+          # Log some information about the data
+          print(f'Prepared {len(train_df)} training samples')
+          print(f'Prepared {len(test_df)} testing samples')
+          
+          # Create a metadata file
+          with open('data/processed/metadata.txt', 'w') as f:
+              f.write(f'Data generated: {datetime.now().isoformat()}\\n')
+              f.write(f'Training samples: {len(train_df)}\\n')
+              f.write(f'Testing samples: {len(test_df)}\\n')
+              f.write(f'Features: {X.shape[1]}\\n')
+              f.write(f'Date range: {start_date.strftime(\"%Y-%m-%d\")} to {end_date.strftime(\"%Y-%m-%d\")}\\n')
+          
+          # Output for GitHub Actions
+          print(f'::set-output name=train_samples::{len(train_df)}')
+          print(f'::set-output name=test_samples::{len(test_df)}')
+          print(f'::set-output name=data_start_date::{start_date.strftime(\"%Y-%m-%d\")}')
+          print(f'::set-output name=data_end_date::{end_date.strftime(\"%Y-%m-%d\")}')
+          "
+          
+          echo "Data preparation complete"
+      
+      # Step 6: Upload the prepared data as artifacts
+      - name: Upload prepared data
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-data
+          path: data/processed/
+          retention-days: 1  # Only need these for the duration of the workflow
+
+  # Second job: Train the model
+  train-model:
+    name: Train Model
+    needs: prepare-data
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # Step 2: Set up Python
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install -r requirements-prod.txt
+      
+      # Step 4: Download prepared data
+      - name: Download prepared data
+        uses: actions/download-artifact@v3
+        with:
+          name: training-data
+          path: data/processed/
+      
+      # Step 5: Configure MLflow
+      - name: Configure MLflow
+        run: |
+          # Create necessary directories
+          mkdir -p ./mlruns
+          
+          # Set MLflow environment variables
+          echo "MLFLOW_TRACKING_URI=${{ env.MLFLOW_TRACKING_URI }}" >> $GITHUB_ENV
+          echo "MLFLOW_EXPERIMENT_NAME=${{ env.EXPERIMENT_NAME }}" >> $GITHUB_ENV
+      
+      # Step 6: Train the model
+      - name: Train model
+        id: train-model
+        run: |
+          # Execute model training
+          # In a real project, you would call your actual training script here
+          # For example: python src/models/train_model.py --data-path data/processed/
+          
+          # For demonstration, we'll use a simple script:
+          python -c "
+          import os
+          import mlflow
+          import pandas as pd
+          import numpy as np
+          from sklearn.ensemble import RandomForestClassifier
+          from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+          
+          # Set up MLflow
+          mlflow.set_tracking_uri(os.environ['MLFLOW_TRACKING_URI'])
+          mlflow.set_experiment(os.environ['MLFLOW_EXPERIMENT_NAME'])
+          
+          # Load the data
+          train_data = pd.read_parquet('data/processed/train_data.parquet')
+          test_data = pd.read_parquet('data/processed/test_data.parquet')
+          
+          # Prepare features and target
+          feature_cols = [col for col in train_data.columns if col.startswith('feature_')]
+          X_train = train_data[feature_cols]
+          y_train = train_data['target']
+          X_test = test_data[feature_cols]
+          y_test = test_data['target']
+          
+          # Start an MLflow run
+          with mlflow.start_run() as run:
+              # Log run metadata
+              mlflow.set_tag('retraining_workflow', 'github_actions')
+              mlflow.set_tag('data_date_range', f'{os.environ.get(\"DATA_START_DATE\", \"unknown\")} to {os.environ.get(\"DATA_END_DATE\", \"unknown\")}')
+              
+              # Log data parameters
+              mlflow.log_param('train_samples', len(X_train))
+              mlflow.log_param('test_samples', len(X_test))
+              mlflow.log_param('features', len(feature_cols))
+              
+              # Create and train the model
+              # In a real project, you would use more sophisticated hyperparameters and techniques
+              model = RandomForestClassifier(
+                  n_estimators=100,
+                  max_depth=10,
+                  random_state=42
+              )
+              
+              # Log model parameters
+              mlflow.log_params({
+                  'model_type': 'RandomForestClassifier',
+                  'n_estimators': 100,
+                  'max_depth': 10
+              })
+              
+              # Train the model
+              model.fit(X_train, y_train)
+              
+              # Make predictions
+              train_preds = model.predict(X_train)
+              test_preds = model.predict(X_test)
+              test_probs = model.predict_proba(X_test)[:, 1]
+              
+              # Calculate metrics
+              train_accuracy = accuracy_score(y_train, train_preds)
+              test_accuracy = accuracy_score(y_test, test_preds)
+              test_precision = precision_score(y_test, test_preds)
+              test_recall = recall_score(y_test, test_preds)
+              test_f1 = f1_score(y_test, test_preds)
+              test_auc = roc_auc_score(y_test, test_probs)
+              
+              # Log metrics
+              mlflow.log_metrics({
+                  'train_accuracy': train_accuracy,
+                  'test_accuracy': test_accuracy,
+                  'test_precision': test_precision,
+                  'test_recall': test_recall,
+                  'test_f1': test_f1,
+                  'test_auc': test_auc
+              })
+              
+              # Log the model
+              mlflow.sklearn.log_model(model, 'model')
+              
+              # Create predictions artifact for later evaluation
+              test_df = test_data.copy()
+              test_df['prediction'] = test_preds
+              test_df['probability'] = test_probs
+              test_df.to_parquet('predictions.parquet')
+              mlflow.log_artifact('predictions.parquet', 'predictions')
+              
+              # Output for GitHub Actions
+              run_id = run.info.run_id
+              print(f'::set-output name=run_id::{run_id}')
+              print(f'::set-output name=model_uri::runs:/{run_id}/model')
+              print(f'::set-output name=test_accuracy::{test_accuracy}')
+              print(f'::set-output name=test_f1::{test_f1}')
+              print(f'::set-output name=test_auc::{test_auc}')
+          "
+      
+      # Step 7: Upload model artifacts
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-artifacts
+          path: |
+            mlruns/
+            data/processed/
+            predictions.parquet
+          retention-days: 1
+      
+      # Step 8: Save outputs for later use
+      - name: Save outputs
+        run: |
+          mkdir -p ./outputs
+          echo "${{ steps.train-model.outputs.run_id }}" > ./outputs/run_id.txt
+          echo "${{ steps.train-model.outputs.model_uri }}" > ./outputs/model_uri.txt
+          echo "${{ steps.train-model.outputs.test_accuracy }}" > ./outputs/test_accuracy.txt
+          echo "${{ steps.train-model.outputs.test_f1 }}" > ./outputs/test_f1.txt
+          echo "${{ steps.train-model.outputs.test_auc }}" > ./outputs/test_auc.txt
+      
+      # Step 9: Upload outputs
+      - name: Upload outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-outputs
+          path: outputs/
+          retention-days: 1
+
+  # Third job: Evaluate model with Deepchecks
+  evaluate-model:
+    name: Evaluate Model with Deepchecks
+    needs: train-model
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # Step 2: Set up Python
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install -r requirements-prod.txt
+          uv pip install deepchecks
+      
+      # Step 4: Download model artifacts
+      - name: Download model artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+          path: ./
+      
+      # Step 5: Download training outputs
+      - name: Download training outputs
+        uses: actions/download-artifact@v3
+        with:
+          name: training-outputs
+          path: outputs/
+      
+      # Step 6: Configure MLflow
+      - name: Configure MLflow
+        run: |
+          # Set MLflow environment variables
+          echo "MLFLOW_TRACKING_URI=${{ env.MLFLOW_TRACKING_URI }}" >> $GITHUB_ENV
+          echo "MLFLOW_EXPERIMENT_NAME=${{ env.EXPERIMENT_NAME }}" >> $GITHUB_ENV
+          
+          # Read training outputs
+          export RUN_ID=$(cat outputs/run_id.txt)
+          export MODEL_URI=$(cat outputs/model_uri.txt)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "MODEL_URI=$MODEL_URI" >> $GITHUB_ENV
+      
+      # Step 7: Run Deepchecks evaluation
+      - name: Run Deepchecks evaluation
+        id: deepchecks
+        run: |
+          # Load the Deepchecks configuration
+          mkdir -p reports/deepchecks
+          
+          # Run Deepchecks evaluation
+          # This is a placeholder. In a real project, you would call your evaluation script
+          # For example: python src/evaluation/run_deepchecks.py --config configs/deepchecks.yaml
+          
+          # For demonstration, we'll use a simple script:
+          python -c "
+          import os
+          import mlflow
+          import pandas as pd
+          import numpy as np
+          from sklearn.ensemble import RandomForestClassifier
+          import deepchecks
+          from deepchecks.tabular import Dataset
+          from deepchecks.tabular.checks import TrainTestLabelDrift, FeatureDrift, ConfusionMatrixReport
+          from deepchecks.tabular.suites import full_suite
+          
+          # Load the data
+          train_data = pd.read_parquet('data/processed/train_data.parquet')
+          test_data = pd.read_parquet('data/processed/test_data.parquet')
+          predictions = pd.read_parquet('predictions.parquet')
+          
+          # Prepare features and target
+          feature_cols = [col for col in train_data.columns if col.startswith('feature_')]
+          cat_features = []  # No categorical features in this demo
+          
+          # Create Deepchecks datasets
+          train_ds = Dataset(
+              df=train_data,
+              features=feature_cols,
+              label='target',
+              cat_features=cat_features
+          )
+          
+          test_ds = Dataset(
+              df=test_data,
+              features=feature_cols,
+              label='target',
+              cat_features=cat_features,
+              predictions=predictions['prediction'].values,
+              prediction_probabilities=np.column_stack([
+                  1 - predictions['probability'].values,
+                  predictions['probability'].values
+              ]) if 'probability' in predictions.columns else None
+          )
+          
+          # Run individual checks
+          label_drift_check = TrainTestLabelDrift()
+          label_drift_result = label_drift_check.run(train_ds, test_ds)
+          
+          feature_drift_check = FeatureDrift()
+          feature_drift_result = feature_drift_check.run(train_ds, test_ds)
+          
+          confusion_matrix_check = ConfusionMatrixReport()
+          confusion_matrix_result = confusion_matrix_check.run(test_ds)
+          
+          # Run the full suite
+          suite = full_suite()
+          suite_result = suite.run(train_ds, test_ds)
+          
+          # Save results
+          suite_result.save_as_html('reports/deepchecks/full_suite.html')
+          
+          # Log to MLflow
+          run_id = os.environ.get('RUN_ID')
+          if run_id:
+              mlflow.set_tracking_uri(os.environ.get('MLFLOW_TRACKING_URI'))
+              with mlflow.start_run(run_id=run_id):
+                  # Log individual check results
+                  mlflow.log_param('deepchecks_version', deepchecks.__version__)
+                  
+                  # Log if any drifts were found
+                  label_drift_found = not label_drift_result.passed()
+                  feature_drift_found = not feature_drift_result.passed()
+                  
+                  mlflow.log_metric('label_drift_found', int(label_drift_found))
+                  mlflow.log_metric('feature_drift_found', int(feature_drift_found))
+                  
+                  # Log the HTML report
+                  mlflow.log_artifact('reports/deepchecks/full_suite.html', 'deepchecks')
+          
+          # Determine overall pass/fail based on critical checks
+          # In a real project, you would have more sophisticated criteria
+          critical_checks_passed = not label_drift_found  # Just using label drift for this example
+          
+          # Write results for GitHub Actions
+          with open('deepchecks_results.txt', 'w') as f:
+              f.write(f'Label drift found: {label_drift_found}\\n')
+              f.write(f'Feature drift found: {feature_drift_found}\\n')
+              f.write(f'Critical checks passed: {critical_checks_passed}\\n')
+          
+          # Output for GitHub Actions
+          print(f'::set-output name=checks_passed::{critical_checks_passed}')
+          print(f'::set-output name=label_drift::{label_drift_found}')
+          print(f'::set-output name=feature_drift::{feature_drift_found}')
+          "
+      
+      # Step 8: Upload evaluation reports
+      - name: Upload evaluation reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: evaluation-reports
+          path: reports/
+          retention-days: 7  # Keep these reports for longer for review
+      
+      # Step 9: Save evaluation results for the next job
+      - name: Save evaluation results
+        run: |
+          mkdir -p ./eval-outputs
+          echo "${{ steps.deepchecks.outputs.checks_passed }}" > ./eval-outputs/checks_passed.txt
+          echo "${{ steps.deepchecks.outputs.label_drift }}" > ./eval-outputs/label_drift.txt
+          echo "${{ steps.deepchecks.outputs.feature_drift }}" > ./eval-outputs/feature_drift.txt
+      
+      # Step 10: Upload evaluation outputs
+      - name: Upload evaluation outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: evaluation-outputs
+          path: eval-outputs/
+          retention-days: 1
+
+  # Fourth job: Register model if evaluation passes
+  register-model:
+    name: Register Model in MLflow
+    needs: [train-model, evaluate-model]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.force_register == 'true' || needs.evaluate-model.outputs.checks_passed == 'true' }}
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # Step 2: Set up Python
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install -r requirements-prod.txt
+      
+      # Step 4: Download artifacts
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: training-outputs
+          path: outputs/
+      
+      # Step 5: Download evaluation results
+      - name: Download evaluation results
+        uses: actions/download-artifact@v3
+        with:
+          name: evaluation-outputs
+          path: eval-outputs/
+      
+      # Step 6: Configure MLflow
+      - name: Configure MLflow
+        run: |
+          # Set MLflow environment variables
+          echo "MLFLOW_TRACKING_URI=${{ env.MLFLOW_TRACKING_URI }}" >> $GITHUB_ENV
+          
+          # Read training outputs
+          export RUN_ID=$(cat outputs/run_id.txt)
+          export MODEL_URI=$(cat outputs/model_uri.txt)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "MODEL_URI=$MODEL_URI" >> $GITHUB_ENV
+          
+          # Read evaluation results
+          export CHECKS_PASSED=$(cat eval-outputs/checks_passed.txt)
+          export LABEL_DRIFT=$(cat eval-outputs/label_drift.txt)
+          export FEATURE_DRIFT=$(cat eval-outputs/feature_drift.txt)
+          echo "CHECKS_PASSED=$CHECKS_PASSED" >> $GITHUB_ENV
+          echo "LABEL_DRIFT=$LABEL_DRIFT" >> $GITHUB_ENV
+          echo "FEATURE_DRIFT=$FEATURE_DRIFT" >> $GITHUB_ENV
+      
+      # Step 7: Compare with production model
+      - name: Compare with production model
+        id: compare-models
+        run: |
+          # Compare the new model with the current production model
+          # In a real project, you would have more sophisticated comparison logic
+          python -c "
+          import os
+          import mlflow
+          import mlflow.pyfunc
+          import json
+          
+          # Set up MLflow client
+          mlflow.set_tracking_uri(os.environ['MLFLOW_TRACKING_URI'])
+          client = mlflow.tracking.MlflowClient()
+          
+          # Get the current model
+          model_name = '${{ env.MODEL_NAME }}'
+          run_id = os.environ['RUN_ID']
+          new_model_uri = os.environ['MODEL_URI']
+          
+          # Get the current production model if it exists
+          production_model = None
+          production_metrics = {}
+          
+          try:
+              # Get the latest production model version
+              production_version = client.get_latest_versions(model_name, stages=['Production'])
+              if production_version:
+                  # Get the run that produced the production model
+                  prod_version = production_version[0]
+                  production_run = client.get_run(prod_version.run_id)
+                  
+                  # Get metrics from the production run
+                  production_metrics = {
+                      'accuracy': production_run.data.metrics.get('test_accuracy', 0),
+                      'f1': production_run.data.metrics.get('test_f1', 0),
+                      'auc': production_run.data.metrics.get('test_auc', 0),
+                  }
+                  
+                  print(f'Current production model version: {prod_version.version}')
+                  print(f'Production model metrics: {production_metrics}')
+              else:
+                  print('No production model found')
+          except Exception as e:
+              print(f'Error getting production model: {e}')
+              print('No production model found or error occurred')
+          
+          # Get current model metrics
+          current_run = client.get_run(run_id)
+          current_metrics = {
+              'accuracy': current_run.data.metrics.get('test_accuracy', 0),
+              'f1': current_run.data.metrics.get('test_f1', 0),
+              'auc': current_run.data.metrics.get('test_auc', 0),
+          }
+          
+          print(f'New model metrics: {current_metrics}')
+          
+          # Compare models - simple comparison based on F1 score
+          # In a real project, you would have more sophisticated comparison criteria
+          if not production_metrics:
+              is_better = True
+              improvement = 1  # 100% improvement if no previous model
+              reason = 'No existing production model to compare with'
+          else:
+              # Compare based on F1 score (could use a weighted metric in real projects)
+              is_better = current_metrics['f1'] > production_metrics['f1']
+              
+              # Calculate percentage improvement
+              if production_metrics['f1'] > 0:
+                  improvement = (current_metrics['f1'] - production_metrics['f1']) / production_metrics['f1']
+              else:
+                  improvement = 1 if current_metrics['f1'] > 0 else 0
+              
+              reason = f'F1 score: {current_metrics['f1']:.4f} vs production {production_metrics['f1']:.4f}'
+              if is_better:
+                  reason += f' (improvement: {improvement:.2%})'
+              else:
+                  reason += f' (worse by: {-improvement:.2%})'
+          
+          # Determine if we should promote to production
+          force_register = '${{ github.event.inputs.force_register }}' == 'true'
+          checks_passed = os.environ['CHECKS_PASSED'] == 'True'
+          
+          should_register = force_register or (is_better and checks_passed)
+          
+          # Create a summary
+          summary = {
+              'is_better': is_better,
+              'improvement': improvement,
+              'reason': reason,
+              'checks_passed': checks_passed,
+              'should_register': should_register,
+              'force_register': force_register,
+              'current_metrics': current_metrics,
+              'production_metrics': production_metrics
+          }
+          
+          # Save summary for GitHub Actions
+          with open('model_comparison.json', 'w') as f:
+              json.dump(summary, f, indent=2)
+          
+          # Output for GitHub Actions
+          print(f'::set-output name=is_better::{is_better}')
+          print(f'::set-output name=improvement::{improvement:.4f}')
+          print(f'::set-output name=should_register::{should_register}')
+          print(f'::set-output name=reason::{reason}')
+          "
+          
+          # Display model comparison results
+          cat model_comparison.json
+          
+          # Save results for use in subsequent steps
+          cp model_comparison.json model_comparison_output.json
+      
+      # Step 8: Register model
+      - name: Register model
+        if: ${{ github.event.inputs.force_register == 'true' || steps.compare-models.outputs.should_register == 'true' }}
+        run: |
+          # Register the model in MLflow Model Registry
+          python -c "
+          import os
+          import mlflow
+          import json
+          
+          # Set up MLflow
+          mlflow.set_tracking_uri(os.environ['MLFLOW_TRACKING_URI'])
+          client = mlflow.tracking.MlflowClient()
+          
+          # Get model info
+          model_name = '${{ env.MODEL_NAME }}'
+          run_id = os.environ['RUN_ID']
+          
+          # Load comparison results
+          with open('model_comparison.json', 'r') as f:
+              comparison = json.load(f)
+          
+          # Register the model with MLflow Model Registry if not already registered
+          model_details = None
+          try:
+              # Check if the run's model is already registered
+              model_versions = client.get_latest_versions(model_name)
+              run_id_exists = any(ver.run_id == run_id for ver in model_versions)
+              
+              if run_id_exists:
+                  print(f'Model from run {run_id} is already registered')
+                  # Find the version
+                  for ver in model_versions:
+                      if ver.run_id == run_id:
+                          model_details = ver
+                          break
+              else:
+                  # Register new model version
+                  print(f'Registering model from run {run_id}')
+                  model_details = mlflow.register_model(
+                      model_uri=f'runs:/{run_id}/model',
+                      name=model_name
+                  )
+                  print(f'Registered model: {model_details.name} version {model_details.version}')
+          except Exception as e:
+              print(f'Error registering model: {e}')
+              # If the model doesn't exist yet, create it
+              if 'RESOURCE_DOES_NOT_EXIST' in str(e):
+                  print(f'Creating new model: {model_name}')
+                  model_details = mlflow.register_model(
+                      model_uri=f'runs:/{run_id}/model',
+                      name=model_name
+                  )
+                  print(f'Created and registered model: {model_details.name} version {model_details.version}')
+              else:
+                  raise e
+          
+          # Add model tags
+          if model_details:
+              # Add metadata tags
+              client.set_model_version_tag(
+                  name=model_name,
+                  version=model_details.version,
+                  key='github_workflow',
+                  value='auto-retrain'
+              )
+              
+              # Add evaluation result tags
+              client.set_model_version_tag(
+                  name=model_name,
+                  version=model_details.version,
+                  key='checks_passed',
+                  value=str(comparison['checks_passed'])
+              )
+              
+              client.set_model_version_tag(
+                  name=model_name,
+                  version=model_details.version,
+                  key='improvement',
+                  value=f'{comparison["improvement"]:.4f}'
+              )
+              
+              # Update model description
+              client.update_model_version(
+                  name=model_name,
+                  version=model_details.version,
+                  description=f'Model trained via GitHub Actions on {os.environ.get("GITHUB_SERVER_URL", "")}/' + 
+                              f'{os.environ.get("GITHUB_REPOSITORY", "")}/actions/runs/{os.environ.get("GITHUB_RUN_ID", "")}'
+              )
+              
+              # Transition model to appropriate stage based on criteria
+              force_register = comparison.get('force_register', False)
+              is_better = comparison.get('is_better', False)
+              checks_passed = comparison.get('checks_passed', False)
+              
+              # Determine target stage
+              if force_register or (is_better and checks_passed):
+                  # If all criteria met, move to Production
+                  target_stage = 'Production'
+                  
+                  # Archive any existing production models
+                  for ver in model_versions:
+                      if ver.current_stage == 'Production' and ver.version != model_details.version:
+                          print(f'Archiving existing production model version {ver.version}')
+                          client.transition_model_version_stage(
+                              name=model_name,
+                              version=ver.version,
+                              stage='Archived'
+                          )
+              else:
+                  # Otherwise, move to Staging for further evaluation
+                  target_stage = 'Staging'
+              
+              # Transition model to target stage
+              client.transition_model_version_stage(
+                  name=model_name,
+                  version=model_details.version,
+                  stage=target_stage
+              )
+              
+              print(f'Model {model_name} version {model_details.version} transitioned to {target_stage}')
+              
+              # Output final information
+              result = {
+                  'model_name': model_name,
+                  'model_version': model_details.version,
+                  'stage': target_stage,
+                  'run_id': run_id,
+                  'reason': comparison.get('reason', ''),
+                  'metrics': comparison.get('current_metrics', {}),
+                  'checks_passed': checks_passed
+              }
+              
+              # Save result to file
+              with open('registration_result.json', 'w') as f:
+                  json.dump(result, f, indent=2)
+              
+              print(f'::set-output name=model_version::{model_details.version}')
+              print(f'::set-output name=model_stage::{target_stage}')
+          else:
+              print('Failed to register or retrieve model details')
+          "
+      
+      # Step 9: Create summary of model registration
+      - name: Create model registration summary
+        if: steps.compare-models.outputs.should_register == 'true' || github.event.inputs.force_register == 'true'
+        run: |
+          echo "## Model Registration Summary" > registration_summary.md
+          echo "" >> registration_summary.md
+          echo "Model: **${{ env.MODEL_NAME }}**" >> registration_summary.md
+          echo "Version: **${{ steps.register-model.outputs.model_version }}**" >> registration_summary.md
+          echo "Stage: **${{ steps.register-model.outputs.model_stage }}**" >> registration_summary.md
+          echo "Reason: ${{ steps.compare-models.outputs.reason }}" >> registration_summary.md
+          echo "" >> registration_summary.md
+          echo "### Performance" >> registration_summary.md
+          echo "- Improvement: **${{ steps.compare-models.outputs.improvement }}x**" >> registration_summary.md
+          echo "- Checks passed: **${{ env.CHECKS_PASSED }}**" >> registration_summary.md
+          echo "" >> registration_summary.md
+          echo "### Actions" >> registration_summary.md
+          echo "- [View run in MLflow](${{ env.MLFLOW_TRACKING_URI }}/#/experiments/${{ env.EXPERIMENT_NAME }}/runs/${{ env.RUN_ID }})" >> registration_summary.md
+          echo "- [View GitHub workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> registration_summary.md
+          
+          cat registration_summary.md
+      
+      # Step 10: Upload registration summary
+      - name: Upload registration summary
+        if: steps.compare-models.outputs.should_register == 'true' || github.event.inputs.force_register == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: registration-summary
+          path: registration_summary.md
+          retention-days: 90  # Keep for longer review
+
+  # Fifth job: Send notifications about model retraining
+  notify:
+    name: Send Notifications
+    needs: [evaluate-model, register-model]
+    runs-on: ubuntu-latest
+    if: always()  # Always run, even if previous jobs failed
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # Step 2: Determine workflow status
+      - name: Determine workflow status
+        id: status
+        run: |
+          # Get job statuses
+          TRAIN_STATUS="${{ needs.train-model.result }}"
+          EVALUATE_STATUS="${{ needs.evaluate-model.result }}"
+          REGISTER_STATUS="${{ needs.register-model.result }}"
+          
+          # Determine overall status
+          if [[ "$TRAIN_STATUS" == "success" && "$EVALUATE_STATUS" == "success" ]]; then
+            if [[ "$REGISTER_STATUS" == "success" ]]; then
+              echo "status=success" >> $GITHUB_OUTPUT
+              echo "message=Model successfully retrained and registered" >> $GITHUB_OUTPUT
+              echo "color=good" >> $GITHUB_OUTPUT
+            elif [[ "$REGISTER_STATUS" == "skipped" ]]; then
+              echo "status=neutral" >> $GITHUB_OUTPUT
+              echo "message=Model retrained but did not meet criteria for registration" >> $GITHUB_OUTPUT
+              echo "color=warning" >> $GITHUB_OUTPUT
+            else
+              echo "status=failure" >> $GITHUB_OUTPUT
+              echo "message=Model retrained but registration failed" >> $GITHUB_OUTPUT
+              echo "color=danger" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=Model retraining failed" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          fi
+      
+      # Step 3: Download artifacts if available
+      - name: Download artifacts
+        if: needs.register-model.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@v3
+        with:
+          name: registration-summary
+          path: ./
+      
+      # Step 4: Send notification (example with Slack)
+      - name: Send Slack notification
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: mlops-models
+          SLACK_COLOR: ${{ steps.status.outputs.color }}
+          SLACK_ICON: https://github.com/rtCamp.png?size=48
+          SLACK_MESSAGE: ${{ steps.status.outputs.message }}
+          SLACK_TITLE: Model Retraining Workflow
+          SLACK_USERNAME: MLOps Bot
+          SLACK_FOOTER: "Triggered by ${{ github.event_name }}"
+        continue-on-error: true  # Continue even if Slack notification fails
+      
+      # Step 5: Create GitHub issue for failed runs
+      - name: Create GitHub issue for failed run
+        if: steps.status.outputs.status == 'failure'
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATUS: ${{ steps.status.outputs.status }}
+          MESSAGE: ${{ steps.status.outputs.message }}
+          RUN_ID: ${{ github.run_id }}
+        with:
+          filename: .github/ISSUE_TEMPLATE/model_training_failure.md
+          update_existing: true
+          search_existing: open
+
