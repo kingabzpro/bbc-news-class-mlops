@@ -40,7 +40,7 @@ mlartifacts/
 .prefect/
 
 # Data
-data/
+/data
 *.csv
 *.parquet
 *.pkl
