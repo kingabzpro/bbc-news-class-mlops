@@ -23,11 +23,10 @@ jobs:
       - name: Lint with black
         run: black --check src tests
       - name: Check pipeline script
-        run: python -m src.pipelines.pipeline --help || true
+        run: PYTHONPATH=. python -m src.pipelines.pipeline --help || true
       - name: Run tests
         run: pytest tests
       - name: Check API startup
         run: |
-          python -m src.api.main
-          sleep 5
+          timeout 10 python -m src.api.main
           kill %1
