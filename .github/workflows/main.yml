@@ -24,12 +24,19 @@ jobs:
           source .venv/bin/activate
           uv pip install -r requirements.txt
       - name: Lint with black
-        run: black --check src tests
+        run: |
+          source .venv/bin/activate
+          black --check src tests
       - name: Check pipeline script
-        run: python -m src.pipelines.pipeline || true
+        run: |
+          source .venv/bin/activate
+          python -m src.pipelines.pipeline || true
       - name: Run tests
-        run: pytest tests
+        run: |
+          source .venv/bin/activate 
+          pytest tests
       - name: Check API startup
         run: |
+          source .venv/bin/activate
           timeout 10 python -m src.api.main || true
           kill %1
