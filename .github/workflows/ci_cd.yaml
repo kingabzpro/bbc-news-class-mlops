@@ -21,14 +21,13 @@ jobs:
       - name: Install dependencies
         run: uv pip install -r requirements.txt
       - name: Lint with black
-        run: uv pip install black && black --check src tests
-      - name: Run tests
-        run: uv pip install pytest && pytest tests
+        run: black --check src tests
       - name: Check pipeline script
         run: python -m src.pipelines.pipeline --help || true
+      - name: Run tests
+        run: pytest tests
       - name: Check API startup
         run: |
-          uv pip install fastapi uvicorn
-          uvicorn src.api.main:app --host 127.0.0.1 --port 8000 &
+          python -m src.api.main
           sleep 5
           kill %1
