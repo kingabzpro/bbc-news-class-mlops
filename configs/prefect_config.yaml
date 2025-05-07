@@ -1,0 +1,3 @@
+# Example Prefect config (can be expanded as needed)
+default_storage: local
+logging_level: INFO

@@ -1,0 +1,24 @@
+# Core ML libraries
+scikit-learn>=1.6.1
+pandas>=2.2.3
+numpy>=2.2.5
+
+# MLOps tools
+mlflow>=2.22.0
+prefect>=3.4.0
+
+
+# API and serving
+fastapi>=0.115.12
+uvicorn>=0.34.2
+
+# Development tools
+pytest>=7.4.0
+black>=24.4.0
+
+# Data and utility
+kaggle>=1.6.12
+joblib>=1.4.0
+python-dotenv>=1.0.1
+seaborn>=0.13.0
+matplotlib>=3.8.0

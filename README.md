@@ -1,246 +1,111 @@
-# MLOps Project Template
+# News Classification MLOps Project
 
-A comprehensive MLOps project template that integrates modern tools and frameworks for the entire machine learning lifecycle, from experiment tracking to model deployment and monitoring.
-
-## Architecture Overview
-
-This template implements a modern MLOps architecture that follows industry best practices:
-
-```
-+---------------------------+     +-------------------+     +-----------------+
-|                           |     |                   |     |                 |
-|  Data & Feature Pipeline  | --> |  Model Pipeline   | --> | Model Serving   |
-|  (Feast)                  |     |  (MLflow/Prefect) |     | (FastAPI/HF)    |
-|                           |     |                   |     |                 |
-+---------------------------+     +-------------------+     +-----------------+
-            |                              |                         |
-            v                              v                         v
-+---------------------------+     +-------------------+     +-----------------+
-|                           |     |                   |     |                 |
-|  Data/Feature Monitoring  | <-> |  Model Registry   | <-> | Model Monitoring|
-|  (Evidently)              |     |  (MLflow)         |     | (Evidently)     |
-|                           |     |                   |     |                 |
-+---------------------------+     +-------------------+     +-----------------+
-                                          |
-                                          v
-                                  +-------------------+
-                                  |                   |
-                                  |  CI/CD Pipeline   |
-                                  |  (GitHub Actions) |
-                                  |                   |
-                                  +-------------------+
-```
-
-The architecture consists of several interconnected components that work together to provide a complete MLOps workflow:
-
-1. **Data & Feature Engineering**: Managed through Feast feature store
-2. **Model Training & Experimentation**: Tracked with MLflow and orchestrated with Prefect
-3. **Model Testing**: Validation with Deepchecks
-4. **Model Registry & Versioning**: Centralized in MLflow with Git LFS for storage
-5. **Model Serving**: API endpoints with FastAPI and deployment to Hugging Face
-6. **Monitoring**: Data and model monitoring with Evidently AI
-7. **CI/CD**: Automation with GitHub Actions
-
-## Technologies
-
-This template integrates the following tools and frameworks:
-
-### Package Management
-- **uv**: A fast Python package installer and resolver, used for dependency management
-
-### Experiment Tracking & Model Registry
-- **MLflow**: For tracking experiments, packaging models, and managing the model registry
-
-### Workflow Orchestration
-- **Prefect**: For creating, scheduling, and monitoring production ML pipelines
-
-### Version Control
-- **Git** & **Git LFS**: For code versioning and managing large model files and datasets
-
-### Feature Store
-- **Feast**: For managing, storing, and serving machine learning features
-
-### Model Testing
-- **Deepchecks**: For validating ML models and data
-
-### Model Serving
-- **FastAPI**: For creating high-performance API endpoints for model serving
-- **Hugging Face**: For model deployment and sharing
-
-### Monitoring
-- **Evidently AI**: For monitoring model performance and data drift in production
-
-### CI/CD
-- **GitHub Actions**: For continuous integration and deployment pipelines
+This MLOps project provides an end-to-end pipeline for training and deploying a news classification model using the BBC articles dataset from Kaggle.
 
 ## Project Structure
 
-```
-A-Mlops/
-├── .github/                   # GitHub configuration
-│   └── workflows/             # GitHub Actions workflows
-├── configs/                   # Configuration files
-│   ├── feast/                 # Feast feature store configuration
-│   ├── deepchecks.yaml        # Deepchecks configuration
-│   ├── evidently.yaml         # Evidently configuration
-│   ├── huggingface.yaml       # Hugging Face configuration
-│   ├── mlflow.yaml            # MLflow configuration
-│   └── prefect.toml           # Prefect configuration
-├── deploy/                    # Deployment configurations
-├── docs/                      # Documentation
-│   ├── CI_CD.md               # CI/CD documentation
-│   ├── DEPLOYMENT.md          # Deployment documentation
-│   ├── ENVIRONMENT.md         # Environment setup documentation
-│   ├── EXPERIMENTS.md         # Experiment tracking documentation
-│   ├── FEATURES.md            # Feature store documentation
-│   ├── MONITORING.md          # Monitoring documentation
-│   ├── SERVING.md             # Model serving documentation
-│   ├── TESTING.md             # Model testing documentation
-│   └── WORKFLOWS.md           # Workflow orchestration documentation
-├── examples/                  # Example notebooks and scripts
-│   ├── deploy_hf.py           # Example HF deployment
-│   ├── feature_retrieval.py   # Example Feast feature retrieval
-│   ├── monitoring_dashboard.ipynb # Example monitoring dashboard
-│   ├── register_model.py      # Example model registration
-│   ├── request.json           # Example API request
-│   └── response.json          # Example API response
-├── infra/                     # Infrastructure as code
-├── scripts/                   # Utility scripts
-│   ├── push_to_hf.py          # Script for pushing models to HF
-│   ├── setup_env.bat          # Windows environment setup
-│   └── setup_env.sh           # Linux/macOS environment setup
-├── src/                       # Source code
-│   ├── data/                  # Data processing code
-│   ├── features/              # Feature engineering code
-│   │   └── feature_repo.py    # Feast feature definitions
-│   ├── models/                # Model definitions
-│   ├── pipelines/             # Pipeline definitions
-│   │   ├── prefect_flows/     # Prefect flow definitions
-│   │   └── mlflow_example.py  # MLflow integration example
-│   ├── serving/               # Model serving code
-│   │   ├── app.py             # FastAPI application
-│   │   └── schemas.py         # API schemas
-│   └── monitoring/            # Monitoring code
-│       └── monitor.py         # Evidently integration
-├── tests/                     # Tests
-│   ├── data_validation/       # Data validation tests
-│   │   └── schema_check.py    # Data schema validation
-│   ├── model_validation/      # Model validation tests
-│   │   └── train_test_checks.py # Train-test validation
-│   └── performance_checks/    # Performance validation tests
-├── .gitattributes             # Git LFS configuration
-├── .gitignore                 # Git ignore patterns
-├── LICENSE                    # Project license
-├── pyproject.toml             # Python project configuration
-├── README.md                  # Project documentation
-├── requirements-dev.txt       # Development dependencies
-├── requirements-prod.txt      # Production dependencies
-└── requirements-test.txt      # Testing dependencies
-```
+- `src/`: Source code
+  - `data/`: Data download and preprocessing
+  - `models/`: Model training and evaluation
+  - `api/`: FastAPI service for model serving
+  - `pipelines/`: Prefect workflows for orchestration
+- `tests/`: Unit and integration tests
+- `notebooks/`: Jupyter notebooks for exploration
+- `configs/`: Configuration files
+- `workflows/`: CI/CD workflows
 
-## Getting Started
+## Requirements
 
-### Prerequisites
-
-- Python 3.9+
-- Git with Git LFS
+- Python 3.10+
 - uv package manager
+- Access to Kaggle API
 
-### Environment Setup
+## Setup
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/A-Mlops.git
-   cd A-Mlops
+   ```
+   git clone https://github.com/kingabzpro/bbc-news-class-mlops.git
+   cd bbc-news-class-mlops
    ```
 
-2. Set up the environment:
-   
-   **On Windows:**
-   ```powershell
-   .\scripts\setup_env.bat
+2. Set up environment with uv:
    ```
-   
-   **On Linux/macOS:**
-   ```bash
-   ./scripts/setup_env.sh
+   uv venv
+   uv pip install -r requirements.txt
    ```
 
-3. Activate the environment:
-   
-   **On Windows:**
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
+3. Run the training pipeline:
    ```
-   
-   **On Linux/macOS:**
-   ```bash
-   source .venv/bin/activate
+   python -m src.pipelines.pipeline
    ```
 
-4. Install dependencies:
-   ```bash
-   uv pip install -r requirements-dev.txt
+4. Start the API server:
+   ```
+   python -m src.api.main
    ```
 
-### Configuration
+## Usage Instructions
 
-1. Configure MLflow:
-   ```bash
-   # Edit configs/mlflow.yaml to set your tracking URI and artifact store
-   mlflow server --config-path configs/mlflow.yaml
-   ```
+### 1. Environment Setup
+- Install [uv](https://github.com/astral-sh/uv):
+  ```sh
+  pip install uv
+  ```
+- Create a virtual environment and install dependencies:
+  ```sh
+  uv venv
+  uv pip install -r requirements.txt
+  ```
 
-2. Configure Prefect:
-   ```bash
-   # Set up Prefect server if needed
-   prefect server start
-   ```
+### 2. Kaggle API Setup
+- Create a Kaggle account and get your API token from https://www.kaggle.com/settings/account.
+- Place your `kaggle.json` in `%USERPROFILE%\.kaggle\` (Windows) or `~/.kaggle/` (Linux/Mac).
 
-3. Configure Feast:
-   ```bash
-   # Initialize Feast feature store
-   cd src/features
-   feast apply
-   ```
+### 3. Download and Preprocess Data
+- Download the dataset:
+  ```sh
+  python -m src.data.download
+  ```
+- Preprocess the dataset:
+  ```sh
+  python -m src.data.preprocess
+  ```
 
-### Running Example Flows
+### 4. Run the MLOps Pipeline
+- Orchestrate the full workflow (download, preprocess, train, evaluate):
+  ```sh
+  python -m src.pipelines.pipeline
+  ```
 
-1. Start an example Prefect flow:
-   ```bash
-   python src/pipelines/prefect_flows/example_flow.py
-   ```
+### 5. Serve the Model API
+- Start the FastAPI server:
+  ```sh
+  python -m src.api.main
+  ```
+- Access the docs at: http://localhost:8000/
 
-2. Start the model serving API:
-   ```bash
-   uvicorn src.serving.app:app --reload
-   ```
+### 6. Run Tests
+- Run all tests:
+  ```sh
+  pytest
+  ```
 
-3. Run model monitoring:
-   ```bash
-   python src/monitoring/monitor.py
-   ```
+### 7. MLflow Tracking
+- MLflow UI (after running training):
+  ```sh
+  mlflow ui
+  ```
+- Open http://127.0.0.1:5000 to view experiments.
 
-## Documentation
+### 8. CI/CD
+- GitHub Actions will automatically lint, test, and check pipeline/API on push or PR to `main`.
 
-For more detailed documentation on specific components, see the documentation files in the `docs/` directory:
+---
 
-- [Environment Setup](docs/ENVIRONMENT.md)
-- [Experiment Tracking](docs/EXPERIMENTS.md)
-- [Workflow Orchestration](docs/WORKFLOWS.md)
-- [Feature Store](docs/FEATURES.md)
-- [Model Testing](docs/TESTING.md)
-- [Model Serving](docs/SERVING.md)
-- [Model Deployment](docs/DEPLOYMENT.md)
-- [Model Monitoring](docs/MONITORING.md)
-- [CI/CD Pipelines](docs/CI_CD.md)
+## MLOps Components
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- This template is inspired by best practices in the MLOps community
-- Thanks to all the open-source projects that make MLOps possible
-
+- **Package Management**: uv
+- **Experiment Tracking**: MLflow
+- **Workflow Orchestration**: Prefect
+- **Model Serving**: FastAPI
+- **CI/CD**: GitHub Actions

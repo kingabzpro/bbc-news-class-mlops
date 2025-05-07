@@ -1,128 +1,42 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0.0", "wheel>=0.40.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "a-mlops"
+name = "news-classifier"
 version = "0.1.0"
-description = "A comprehensive MLOps project template"
+description = "News classification MLOps project using BBC articles dataset"
 readme = "README.md"
-requires-python = ">=3.9"
-license = {file = "LICENSE"}
+requires-python = ">=3.10"
+license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
-]
-keywords = ["mlops", "machine learning", "ml", "ai"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    {name = "YourName", email = "your.email@example.com"},
 ]
 dependencies = [
-    "numpy>=1.22.0",
-    "pandas>=2.0.0",
-    "scikit-learn>=1.2.0",
+    "scikit-learn>=1.5.1",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
     "mlflow>=2.17.0",
     "prefect>=3.0.0",
-    "fastapi>=0.95.0",
-    "uvicorn>=0.17.0",
-    "pydantic>=2.0.0",
-    "feast>=0.31.0",
-    "deepchecks>=0.17.0",
-    "evidently>=0.4.0",
-    "huggingface-hub>=0.19.0",
-    "python-dotenv>=1.0.0",
-    "pyyaml>=6.0.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "black>=24.0.0",
-    "isort>=5.10.0",
-    "mypy>=1.8.0",
-    "pylint>=3.0.0",
-    "pre-commit>=3.0.0",
-    "jupyterlab>=4.0.0",
-    "ipykernel>=6.0.0",
-]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-asyncio>=0.21.0",
-    "httpx>=0.24.0",
-]
-docs = [
-    "mkdocs>=1.4.0",
-    "mkdocs-material>=9.0.0",
-    "mkdocstrings>=0.20.0",
-    "mkdocs-jupyter>=0.24.0",
+    "deepchecks>=0.18.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "pytest>=7.4.0",
+    "black>=24.4.0",
+    "kaggle>=1.6.12",
+    "joblib>=1.4.0",
+    "python-dotenv>=1.0.1"
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/a-mlops"
-"Bug Tracker" = "https://github.com/yourusername/a-mlops/issues"
+"Homepage" = "https://github.com/yourusername/news-classifier"
 
-# UV Configuration
-[tool.uv]
-# UV-specific settings and markers
-exclude = ["*.pyd", "*.pyc", "*.pyo", "*.dll", "*.so", "*.dylib", "*.exe", "*.zip", "*.tar.gz", "*.tgz", "*.whl"]
-base-python = "3.9"
+[tool.setuptools]
+packages = ["src"]
 
-[tool.uv.scripts]
-lint = "black . && isort . && mypy src"
-test = "pytest"
-serve = "uvicorn src.serving.app:app --reload"
-docs = "mkdocs serve"
-
-# Tool configurations
 [tool.black]
 line-length = 88
-target-version = ["py39", "py310", "py311"]
-include = '\.pyi?$'
+target-version = ["py310"]
 
-[tool.isort]
-profile = "black"
-line_length = 88
-multi_line_output = 3
-
-[tool.mypy]
-python_version = "3.9"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-strict_optional = true
-
-[tool.pytest.ini_options]
-minversion = "7.0"
+[tool.pytest]
 testpaths = ["tests"]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-addopts = "--cov=src --cov-report=xml:coverage.xml --cov-report=term"
-
-[tool.coverage.run]
-source = ["src"]
-omit = ["tests/*", "scripts/*", "examples/*"]
-
-[tool.pylint]
-max-line-length = 88
-disable = [
-    "C0111", # missing-docstring
-    "C0103", # invalid-name
-    "C0330", # bad-continuation
-    "C0326", # bad-whitespace
-    "W0511", # fixme
-    "R0903", # too-few-public-methods
-]
-

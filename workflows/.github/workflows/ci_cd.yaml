@@ -1,0 +1,34 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv pip install -r requirements.txt
+      - name: Lint with black
+        run: uv pip install black && black --check src tests
+      - name: Run tests
+        run: uv pip install pytest && pytest tests
+      - name: Check pipeline script
+        run: python -m src.pipelines.pipeline --help || true
+      - name: Check API startup
+        run: |
+          uv pip install fastapi uvicorn
+          uvicorn src.api.main:app --host 127.0.0.1 --port 8000 &
+          sleep 5
+          kill %1

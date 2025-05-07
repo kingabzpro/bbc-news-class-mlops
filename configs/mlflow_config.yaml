@@ -1,0 +1,3 @@
+# Example MLflow config for local tracking
+tracking_uri: "file:./mlruns"
+experiment_name: "news-classifier"
