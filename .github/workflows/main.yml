@@ -2,30 +2,43 @@ name: CI/CD
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up Python
+
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install uv
         run: pip install uv
+
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt
-      - name: Lint with black
+
+      - name: Lint with Black
         run: black --check src tests
-      - name: Check pipeline script
-        run: python -m src.pipelines.pipeline || true
+
+      - name: Preprocess data
+        run: python -m src.data.preprocess
+
+      - name: Train model
+        run: python -m src.model.train
+
+      - name: Evaluate model
+        run: python -m src.model.evaluate
+
       - name: Run tests
         run: pytest tests
-      - name: Check API startup
-        run: |
-          timeout 10 python -m src.api.main || true
+
+      - name: Verify API startup
+        run: timeout 10 python -m src.api.main || true

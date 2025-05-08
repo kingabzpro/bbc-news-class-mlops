@@ -17,8 +17,10 @@ def test_fastapi_health():
     assert response.status_code in (200, 503)  # 503 if model not trained
     if response.status_code == 200:
         data = response.json()
-        assert "prediction" in data
-        assert isinstance(data["prediction"], str)
+        assert "category" in data
+        assert isinstance(data["category"], str)
+        assert "confidence" in data
+        assert (data["confidence"] is None) or (isinstance(data["confidence"], float))
 
 
 def test_predict_missing_field():
@@ -27,3 +29,17 @@ def test_predict_missing_field():
     assert (
         response.status_code == 422
     )  # Unprocessable Entity for missing required field
+
+
+def test_info_endpoint():
+    client = TestClient(app)
+    response = client.get("/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert "model_loaded" in data
+    assert isinstance(data["model_loaded"], bool)
+    if data["model_loaded"]:
+        assert "model_version" in data
+        assert isinstance(data["model_version"], str)
+        assert "classes" in data
+        assert isinstance(data["classes"], list)
