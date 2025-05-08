@@ -37,6 +37,12 @@ jobs:
       - name: Evaluate model
         run: python -m src.models.evaluate
 
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-evaluation-report
+          path: models/model_evaluation_report.md
+
       - name: Run tests
         run: pytest
 
