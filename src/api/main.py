@@ -23,11 +23,25 @@ API_KEY = os.getenv("API_KEY")
 # ---------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------
-MODEL_DIR = Path(__file__).parent.parent.parent / "models"
-MODEL_PATH = next(
-    MODEL_DIR.glob("news_classifier_*.joblib"),
-    "/home/runner/work/bbc-news-class-mlops/bbc-news-class-mlops/models/news_classifier_logistic.joblib",
+MODEL_DIR = os.getenv("MODEL_DIR")
+if MODEL_DIR:
+    MODEL_DIR = Path(MODEL_DIR).resolve()
+else:
+    # Default: try to find 'models' in repo root or current working dir
+    possible_dirs = [
+        Path(__file__).parent.parent.parent / "models",
+        Path.cwd() / "models",
+    ]
+    MODEL_DIR = next((d for d in possible_dirs if d.exists()), possible_dirs[0])
+
+model_files = (
+    list(MODEL_DIR.glob("news_classifier_*.joblib")) if MODEL_DIR.exists() else []
 )
+if model_files:
+    MODEL_PATH = model_files[0]
+else:
+    MODEL_PATH = MODEL_DIR / "news_classifier_logistic.joblib"
+
 model = None
 
 
