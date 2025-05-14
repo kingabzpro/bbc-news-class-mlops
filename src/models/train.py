@@ -40,6 +40,9 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 MODEL_DIR = Path(__file__).parent.parent.parent / "models"
 CONFIG_PATH = Path(__file__).parent.parent.parent / "configs" / "mlflow_config.yaml"
+MODEL_PARAMS_PATH = (
+    Path(__file__).parent.parent.parent / "configs" / "model_params.yaml"
+)
 
 
 def load_mlflow_config():
@@ -47,6 +50,13 @@ def load_mlflow_config():
     with open(CONFIG_PATH, "r") as file:
         config = yaml.safe_load(file)
     return config
+
+
+def load_model_params():
+    """Load model parameter grid from YAML file"""
+    with open(MODEL_PARAMS_PATH, "r") as file:
+        params = yaml.safe_load(file)
+    return params
 
 
 def setup_mlflow():
@@ -123,6 +133,9 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
     # Create pipeline
     pipeline = create_pipeline(classifier_type)
 
+    # Load model parameter grid
+    model_params = load_model_params()
+
     # Start MLflow run
     with mlflow.start_run() as run:
         # Log parameters
@@ -130,31 +143,18 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
         mlflow.log_param("tune_hyperparams", tune_hyperparams)
 
         if tune_hyperparams:
-            # Define hyperparameter grid
-            if classifier_type == "logistic":
-                param_grid = {
-                    "tfidf__max_features": [5000, 10000],
-                    "tfidf__ngram_range": [(1, 1), (1, 2)],
-                    "classifier__C": [0.1, 1.0, 10.0],
-                }
-            elif classifier_type == "svm":
-                param_grid = {
-                    "tfidf__max_features": [5000, 10000],
-                    "tfidf__ngram_range": [(1, 1), (1, 2)],
-                    "classifier__C": [0.1, 1.0, 10.0],
-                }
-            elif classifier_type == "rf":
-                param_grid = {
-                    "tfidf__max_features": [5000, 10000],
-                    "tfidf__ngram_range": [(1, 1), (1, 2)],
-                    "classifier__n_estimators": [100, 200],
-                    "classifier__max_depth": [None, 10, 20],
-                }
+            # Get hyperparameter grid from model_params.yaml
+            param_grid = model_params.get(classifier_type, {})
+
+            # Convert ngram_range lists to tuples if present
+            if "tfidf__ngram_range" in param_grid:
+                param_grid["tfidf__ngram_range"] = [
+                    tuple(x) for x in param_grid["tfidf__ngram_range"]
+                ]
 
             # Log hyperparameter search space
             for param, values in param_grid.items():
                 mlflow.log_param(f"grid_{param}", values)
-
             # Tune hyperparameters
             logger.info("Tuning hyperparameters")
             grid_search = GridSearchCV(
@@ -189,6 +189,13 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
         precision = precision_score(y_val, y_pred, average="weighted", zero_division=0)
         recall = recall_score(y_val, y_pred, average="weighted", zero_division=0)
 
+        # log metrics
+        logger.info(f"Accuracy: {accuracy}")
+        logger.info(f"F1 score: {f1}")
+        logger.info(f"Precision: {precision}")
+        logger.info(f"Recall: {recall}")
+        
+        # Log mlflow metrics
         mlflow.log_metric("accuracy", accuracy)
         mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("precision_weighted", precision)
@@ -222,4 +229,4 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
 
 
 if __name__ == "__main__":
-    train_model(classifier_type="logistic", tune_hyperparams=True)
+    train_model(classifier_type="rf", tune_hyperparams=True)

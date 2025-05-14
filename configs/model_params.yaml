@@ -1,0 +1,16 @@
+# Model parameter grid for experimentation
+logistic:
+  tfidf__max_features: [5000, 10000]
+  tfidf__ngram_range: [[1, 1], [1, 2]]
+  classifier__C: [0.1, 1.0, 10.0]
+
+svm:
+  tfidf__max_features: [5000, 10000]
+  tfidf__ngram_range: [[1, 1], [1, 2]]
+  classifier__C: [0.1, 1.0, 10.0]
+
+rf:
+  tfidf__max_features: [5000, 10000]
+  tfidf__ngram_range: [[1, 1], [1, 2]]
+  classifier__n_estimators: [100, 200]
+  classifier__max_depth: [null, 10, 20] 
