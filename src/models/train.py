@@ -194,7 +194,7 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
         logger.info(f"F1 score: {f1}")
         logger.info(f"Precision: {precision}")
         logger.info(f"Recall: {recall}")
-        
+
         # Log mlflow metrics
         mlflow.log_metric("accuracy", accuracy)
         mlflow.log_metric("f1_score", f1)
