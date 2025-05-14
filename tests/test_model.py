@@ -4,15 +4,22 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
 
 
 def test_fastapi_health():
     client = TestClient(app)
     response = client.post(
-        "/predict", json={"title": "Concerns at school diploma plan"}
+        "/predict",
+        json={"title": "Concerns at school diploma plan"},
+        headers={"X-API-Key": API_KEY},
     )
     assert response.status_code in (200, 503)  # 503 if model not trained
     if response.status_code == 200:
@@ -25,7 +32,7 @@ def test_fastapi_health():
 
 def test_predict_missing_field():
     client = TestClient(app)
-    response = client.post("/predict", json={})
+    response = client.post("/predict", json={}, headers={"X-API-Key": API_KEY})
     assert (
         response.status_code == 422
     )  # Unprocessable Entity for missing required field
@@ -43,3 +50,24 @@ def test_info_endpoint():
         assert isinstance(data["model_version"], str)
         assert "classes" in data
         assert isinstance(data["classes"], list)
+
+
+def test_predict_no_api_key():
+    client = TestClient(app)
+    response = client.post(
+        "/predict",
+        json={"title": "Test title without API key"},
+    )
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not authenticated: X-API-Key header missing."}
+
+
+def test_predict_invalid_api_key():
+    client = TestClient(app)
+    response = client.post(
+        "/predict",
+        json={"title": "Test title with invalid API key"},
+        headers={"X-API-Key": "invalid_key"},
+    )
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid API Key"}

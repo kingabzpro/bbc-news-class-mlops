@@ -82,7 +82,17 @@ This MLOps project provides an end-to-end pipeline for training and deploying a 
   ```sh
   python -m src.api.main
   ```
-- Access the docs at: http://localhost:8000/
+- Access the docs at: http://localhost:8000/docs
+- The API is protected. To authenticate, you need to set an `API_KEY` environment variable before starting the server (e.g., in a `.env` file).
+- When making requests to the `/predict` endpoint, include the API key in the `X-API-Key` header.
+
+  Example request using `curl`:
+  ```sh
+  curl -X POST "http://localhost:8000/predict" \
+       -H "Content-Type: application/json" \
+       -H "X-API-Key: YOUR_API_KEY" \
+       -d '{"title": "New research on climate change"}'
+  ```
 
 ### 6. Run Tests
 - Run all tests:
