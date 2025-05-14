@@ -23,20 +23,8 @@ API_KEY = os.getenv("API_KEY")
 # ---------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------
-GHA_MODEL_PATH = "/home/runner/work/bbc-news-class-mlops/bbc-news-class-mlops/models/news_classifier_logistic.joblib"
-
-if os.getenv("GITHUB_ACTIONS") == "true" and Path(GHA_MODEL_PATH).exists():
-    MODEL_PATH = Path(GHA_MODEL_PATH)
-else:
-    model_dir = Path(
-        os.getenv("MODEL_DIR", Path(__file__).parents[2] / "models")
-    ).resolve()
-    model_files = list(model_dir.glob("news_classifier_*.joblib"))
-    MODEL_PATH = (
-        model_files[0] if model_files else model_dir / "news_classifier_logistic.joblib"
-    )
-
-MODEL_DIR = MODEL_PATH.parent
+MODEL_DIR = Path(__file__).parent.parent.parent / "models"
+MODEL_PATH = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
 model = None
 
 
