@@ -24,7 +24,10 @@ API_KEY = os.getenv("API_KEY")
 # Model
 # ---------------------------------------------------------------------
 MODEL_DIR = Path(__file__).parent.parent.parent / "models"
-MODEL_PATH = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
+MODEL_PATH = next(
+    MODEL_DIR.glob("news_classifier_*.joblib"),
+    "/bbc-news-class-mlops/models/news_classifier_logistic.joblib",
+)
 model = None
 
 
@@ -57,9 +60,7 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def get_api_key(api_key_from_header: str = Security(api_key_header)):
-    if (
-        not API_KEY
-    ):  # Allow access if API_KEY is not set in the environment (e.g. for local dev without .env)
+    if not API_KEY:  # Allow access if API_KEY is not set in the environment (e.g. for local dev without .env)
         return
     if not api_key_from_header:
         raise HTTPException(
