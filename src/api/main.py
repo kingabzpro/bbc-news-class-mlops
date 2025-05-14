@@ -8,15 +8,14 @@ from pathlib import Path
 from typing import List, Optional
 
 import joblib
-
-# ---------------------------------------------------------------------
-# Environment Variables
-# ---------------------------------------------------------------------
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
+# ---------------------------------------------------------------------
+# Environment Variables
+# ---------------------------------------------------------------------
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
