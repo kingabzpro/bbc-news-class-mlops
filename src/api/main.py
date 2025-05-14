@@ -23,25 +23,20 @@ API_KEY = os.getenv("API_KEY")
 # ---------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------
-MODEL_DIR = os.getenv("MODEL_DIR")
-if MODEL_DIR:
-    MODEL_DIR = Path(MODEL_DIR).resolve()
-else:
-    # Default: try to find 'models' in repo root or current working dir
-    possible_dirs = [
-        Path(__file__).parent.parent.parent / "models",
-        Path.cwd() / "models",
-    ]
-    MODEL_DIR = next((d for d in possible_dirs if d.exists()), possible_dirs[0])
+GHA_MODEL_PATH = "/home/runner/work/bbc-news-class-mlops/bbc-news-class-mlops/models/news_classifier_logistic.joblib"
 
-model_files = (
-    list(MODEL_DIR.glob("news_classifier_*.joblib")) if MODEL_DIR.exists() else []
-)
-if model_files:
-    MODEL_PATH = model_files[0]
+if os.getenv("GITHUB_ACTIONS") == "true" and Path(GHA_MODEL_PATH).exists():
+    MODEL_PATH = Path(GHA_MODEL_PATH)
 else:
-    MODEL_PATH = MODEL_DIR / "news_classifier_logistic.joblib"
+    model_dir = Path(
+        os.getenv("MODEL_DIR", Path(__file__).parents[2] / "models")
+    ).resolve()
+    model_files = list(model_dir.glob("news_classifier_*.joblib"))
+    MODEL_PATH = (
+        model_files[0] if model_files else model_dir / "news_classifier_logistic.joblib"
+    )
 
+MODEL_DIR = MODEL_PATH.parent
 model = None
 
 
@@ -74,9 +69,7 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def get_api_key(api_key_from_header: str = Security(api_key_header)):
-    if (
-        not API_KEY
-    ):  # Allow access if API_KEY is not set in the environment (e.g. for local dev without .env)
+    if not API_KEY:  # Allow access if API_KEY is not set in the environment (e.g. for local dev without .env)
         return
     if not api_key_from_header:
         raise HTTPException(
