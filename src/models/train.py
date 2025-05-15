@@ -229,4 +229,4 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
 
 
 if __name__ == "__main__":
-    train_model(classifier_type="rf", tune_hyperparams=True)
+    train_model(classifier_type="logistic", tune_hyperparams=True)

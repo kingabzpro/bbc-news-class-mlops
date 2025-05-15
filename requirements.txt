@@ -11,6 +11,7 @@ prefect>=3.4.0
 # API and serving
 fastapi>=0.115.12
 uvicorn>=0.34.2
+prometheus-fastapi-instrumentator>=6.1.0
 
 # Development tools
 pytest>=7.4.0
