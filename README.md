@@ -31,6 +31,7 @@ This MLOps project provides an end-to-end pipeline for training and deploying a 
 2. Set up environment with uv:
    ```
    uv venv
+   .venv\Scripts\activate 
    uv pip install -r requirements.txt
    ```
 
@@ -94,6 +95,29 @@ This MLOps project provides an end-to-end pipeline for training and deploying a 
        -d '{"title": "New research on climate change"}'
   ```
 
+### 5a. New Dockerfile: Build and Run with Docker
+
+You can also run the API using Docker. The Dockerfile will run tests (but not fail the build if they fail) and then launch the FastAPI app on port 7860.
+
+1. **Build the Docker image:**
+   ```sh
+   docker build -t news_class_app .
+   ```
+
+2. **Run the Docker container:**
+   - You can set the `API_KEY` using an `.env` file or with the `--env` flag.
+   - Example using an `.env` file:
+     ```sh
+     docker run --env-file .env -p 7860:7860 news_class_app
+     ```
+   - Or set the variable directly:
+     ```sh
+     docker run -e API_KEY=your_api_key -p 7860:7860 news_class_app
+     ```
+
+3. **Access the API docs:**
+   - Open http://localhost:7860/docs in your browser.
+
 ### 6. Run Tests
 - Run all tests:
   ```sh
@@ -118,4 +142,6 @@ This MLOps project provides an end-to-end pipeline for training and deploying a 
 - **Experiment Tracking**: MLflow
 - **Workflow Orchestration**: Prefect
 - **Model Serving**: FastAPI
+- **Data Management**: Kaggle
+- **Containerization**: Docker
 - **CI/CD**: GitHub Actions
