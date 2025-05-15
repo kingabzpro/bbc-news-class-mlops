@@ -11,6 +11,7 @@ import joblib
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import APIKeyHeader
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------
@@ -45,9 +46,13 @@ app = FastAPI(
     openapi_tags=[
         {"name": "Metadata"},
         {"name": "Inference"},
-        {"name": "Authentication"},
     ],
 )
+
+# ---------------------------------------------------------------------
+# Prometheus Metrics
+# ---------------------------------------------------------------------
+Instrumentator().instrument(app).expose(app)
 
 
 # ---------------------------------------------------------------------

@@ -136,6 +136,23 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
 
 ---
 
+### 8. FastAPI Monitoring with Prometheus
+To enable Prometheus to scrape metrics from your FastAPI application, you need to instrument your app to expose a metrics endpoint (commonly `/metrics`). This typically involves using a library like `prometheus-fastapi-instrumentator`.
+1. Go to the official Prometheus downloads page: https://prometheus.io/download/ 
+2. Extract the contents of the downloaded archive into this C:\Prometheus folder.
+3. Open the `prometheus.yml` file located in your Prometheus installation directory with a text editor and add the following configuration:
+```yml
+  - job_name: 'fastapi-app'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:8000'] 
+```
+4. Start the Powershell in the same folder and run the following command:
+```powershell
+prometheus.exe --config.file=prometheus.yml --web.listen-address=":9090"
+```
+5. Open your web browser and go to http://localhost:9090. You should see the Prometheus UI.
+
 ## MLOps Components
 
 - **Package Management**: uv
@@ -143,5 +160,6 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
 - **Workflow Orchestration**: Prefect
 - **Model Serving**: FastAPI
 - **Data Management**: Kaggle
+- **Monitoring**: Prometheus
 - **Containerization**: Docker
 - **CI/CD**: GitHub Actions
