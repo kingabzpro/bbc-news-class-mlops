@@ -25,8 +25,10 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt
 
-      - name: Lint with Black
-        run: black --check src tests
+      - name: Lint with Black      
+        run: |
+        black src tests
+        black --check src tests
 
       - name: Preprocess data
         run: python -m src.data.preprocess
