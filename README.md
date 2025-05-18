@@ -185,10 +185,12 @@ prometheus.exe --config.file=prometheus.yml --web.listen-address=":9090"
 ## MLOps Components
 
 - **Package Management**: uv
+- **Data Management**: Kaggle
+- **Machine Learning**: Scikit Learn
 - **Experiment Tracking**: MLflow
 - **Workflow Orchestration**: Prefect
 - **Model Serving**: FastAPI
-- **Data Management**: Kaggle
+- **Stress Testing**: Locust
 - **Monitoring**: Prometheus
 - **Containerization**: Docker
 - **CI/CD**: GitHub Actions
