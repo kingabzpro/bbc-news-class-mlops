@@ -132,14 +132,35 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
   pytest
   ```
 
-### 7. MLflow Tracking
+### 7. Load Testing with Locust
+- Install Locust:
+  ```sh
+  pip install locust
+  ```
+- Run the stress test:
+  ```sh
+  locust -f tests/stress_test.py
+  ```
+- Open http://localhost:8089 in your browser to access the Locust web interface
+- Configure the test:
+  - Number of users to simulate
+  - Spawn rate (users per second)
+  - Host (e.g., http://localhost:8000)
+- Start the test to simulate real-world load on your API
+- Monitor:
+  - Response times
+  - Request rates
+  - Error rates
+  - Number of users
+
+### 8. MLflow Tracking
 - MLflow UI (after running training):
   ```sh
   mlflow ui
   ```
 - Open http://127.0.0.1:5000 to view experiments.
 
-### 8. CI/CD
+### 9. CI/CD
 - GitHub Actions will automatically lint, test, and check pipeline/API on push or PR to `main`.
 
 ---
