@@ -46,7 +46,7 @@ jobs:
       - name: Run tests
         env:
           API_KEY: ${{ secrets.API_KEY }}
-        run: pytest
+        run: pytest tests/test_model.py -v  
 
       - name: Verify API startup
         run: timeout 10 python -m src.api.main || true

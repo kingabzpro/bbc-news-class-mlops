@@ -1,5 +1,5 @@
 """
-News Classifier API Version 0.3
+News Classifier API Version 0.4
 """
 
 import asyncio
@@ -12,7 +12,9 @@ from typing import List, Optional
 import joblib
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 
@@ -52,6 +54,10 @@ app = FastAPI(
         {"name": "Inference"},
     ],
 )
+
+# Mount static files
+templates_dir = Path(__file__).parent / "templates"
+app.mount("/static", StaticFiles(directory=templates_dir), name="static")
 
 # ---------------------------------------------------------------------
 # Prometheus Metrics
@@ -142,6 +148,12 @@ async def predict(req: NewsRequest):
         conf = float(proba[0].max())
 
     return {"category": pred, "confidence": conf}
+
+
+@app.get("/", response_class=HTMLResponse, tags=["Metadata"])
+async def root():
+    template_path = templates_dir / "index.html"
+    return template_path.read_text()
 
 
 # ---------------------------------------------------------------------

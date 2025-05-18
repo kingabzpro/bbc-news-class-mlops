@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Classifier API</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --card-bg: #f9fafb;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .endpoints {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .endpoint-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .endpoint-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .method {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .endpoint-path {
+            font-family: monospace;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .description {
+            color: #4b5563;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: #6b7280;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .version {
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .endpoint-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>News Classifier API</h1>
+            <p class="subtitle">A powerful API for classifying news articles into different categories using machine learning.</p>
+        </header>
+
+        <main class="endpoints">
+            <div class="endpoint-card">
+                <span class="method">GET</span>
+                <div class="endpoint-path">/info</div>
+                <p class="description">Retrieve information about the loaded model, including version and available categories.</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method">POST</span>
+                <div class="endpoint-path">/predict</div>
+                <p class="description">Classify a news article title and receive the predicted category with confidence score.</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method">GET</span>
+                <div class="endpoint-path">/metrics</div>
+                <p class="description">Access Prometheus metrics for monitoring API performance and usage.</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method">GET</span>
+                <div class="endpoint-path">/docs</div>
+                <p class="description">Interactive API documentation with Swagger UI for testing endpoints.</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method">GET</span>
+                <div class="endpoint-path">/redoc</div>
+                <p class="description">Alternative API documentation with ReDoc for a different viewing experience.</p>
+            </div>
+        </main>
+
+        <footer>
+            <p class="version">News Classifier API v0.4 | Powered by FastAPI</p>
+        </footer>
+    </div>
+</body>
+</html> 
