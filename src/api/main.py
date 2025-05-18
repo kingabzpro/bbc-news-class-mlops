@@ -1,8 +1,10 @@
 """
-News Classifier API Version 0.2
+News Classifier API Version 0.3
 """
 
+import asyncio
 import os
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
@@ -27,6 +29,7 @@ API_KEY = os.getenv("API_KEY")
 MODEL_DIR = Path(__file__).parent.parent.parent / "models"
 MODEL_PATH = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
 model = None
+thread_pool = ThreadPoolExecutor(max_workers=4)  # Adjust based on your CPU cores
 
 
 @asynccontextmanager
@@ -35,6 +38,7 @@ async def lifespan(_: FastAPI):
     if MODEL_PATH and MODEL_PATH.exists():
         model = joblib.load(MODEL_PATH)
     yield
+    thread_pool.shutdown()
 
 
 # ---------------------------------------------------------------------
@@ -62,9 +66,7 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def get_api_key(api_key_from_header: str = Security(api_key_header)):
-    if (
-        not API_KEY
-    ):  # Allow access if API_KEY is not set in the environment (e.g. for local dev without .env)
+    if not API_KEY:  # Allow access if API_KEY is not set in the environment
         return
     if not api_key_from_header:
         raise HTTPException(
@@ -94,10 +96,18 @@ class Info(BaseModel):
 
 
 # ---------------------------------------------------------------------
+# Helper Functions
+# ---------------------------------------------------------------------
+async def run_in_threadpool(func, *args):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(thread_pool, func, *args)
+
+
+# ---------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------
 @app.get("/info", response_model=Info, tags=["Metadata"])
-def info():
+async def info():
     if model is None:
         return {
             "model_loaded": False,
@@ -117,16 +127,20 @@ def info():
     tags=["Inference"],
     dependencies=[Depends(get_api_key)],
 )
-def predict(req: NewsRequest):
+async def predict(req: NewsRequest):
     if model is None:
         raise HTTPException(503, "Model not available")
 
-    pred = model.predict([req.title])[0]
-    conf = (
-        float(model.predict_proba([req.title])[0].max())
-        if hasattr(model, "predict_proba")
-        else None
-    )
+    # Run prediction in threadpool to avoid blocking
+    pred = await run_in_threadpool(model.predict, [req.title])
+    pred = pred[0]
+
+    # Get confidence if available
+    conf = None
+    if hasattr(model, "predict_proba"):
+        proba = await run_in_threadpool(model.predict_proba, [req.title])
+        conf = float(proba[0].max())
+
     return {"category": pred, "confidence": conf}
 
 
@@ -136,4 +150,13 @@ def predict(req: NewsRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.api.main:app", host="localhost", port=8000, reload=True)
+    # Run with multiple workers
+    uvicorn.run(
+        "src.api.main:app",
+        host="localhost",
+        port=8000,
+        workers=4,
+        log_level="info",
+        access_log=True,
+        timeout_keep_alive=30,
+    )

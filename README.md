@@ -81,8 +81,16 @@ This MLOps project provides an end-to-end pipeline for training and deploying a 
 ### 5. Serve the Model API
 - Start the FastAPI server:
   ```sh
+  # Development mode (4 workers)
   python -m src.api.main
   ```
+
+The API now features:
+- Async endpoints for improved performance
+- Multi-worker support for handling concurrent requests
+- Thread pool for CPU-bound prediction tasks
+- Prometheus metrics integration
+
 - Access the docs at: http://localhost:8000/docs
 - The API is protected. To authenticate, you need to set an `API_KEY` environment variable before starting the server (e.g., in a `.env` file).
 - When making requests to the `/predict` endpoint, include the API key in the `X-API-Key` header.
