@@ -6,8 +6,9 @@ import asyncio
 import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import joblib
 import mlflow
@@ -28,6 +29,37 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "news_classifier_logistic")
 MODEL_VERSION = os.getenv("MODEL_VERSION", 1)
+CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))  # Cache TTL in seconds, default 1 hour
+
+
+# ---------------------------------------------------------------------
+# Cache Implementation
+# ---------------------------------------------------------------------
+class PredictionCache:
+    def __init__(self, ttl_seconds: int = 3600):
+        self.cache: Dict[str, Tuple[datetime, dict]] = {}
+        self.ttl = timedelta(seconds=ttl_seconds)
+
+    def get(self, key: str) -> Optional[dict]:
+        if key not in self.cache:
+            return None
+
+        timestamp, value = self.cache[key]
+        if datetime.now() - timestamp > self.ttl:
+            del self.cache[key]
+            return None
+
+        return value
+
+    def set(self, key: str, value: dict):
+        self.cache[key] = (datetime.now(), value)
+
+    def clear(self):
+        self.cache.clear()
+
+
+# Initialize cache
+prediction_cache = PredictionCache(ttl_seconds=CACHE_TTL)
 
 # ---------------------------------------------------------------------
 # Model
@@ -46,7 +78,9 @@ def load_mlflow_config():
     return config
 
 
-def load_model_from_registry(model_name: str, version: str = None) -> Tuple[object, str]:
+def load_model_from_registry(
+    model_name: str, version: str = None
+) -> Tuple[object, str]:
     """
     Load the latest model from MLflow Model Registry.
 
@@ -189,6 +223,12 @@ async def predict(req: NewsRequest):
     if model is None:
         raise HTTPException(503, "Model not available")
 
+    # Check cache first
+    cache_key = req.title
+    cached_result = prediction_cache.get(cache_key)
+    if cached_result:
+        return cached_result
+
     # Run prediction in threadpool to avoid blocking
     pred = await run_in_threadpool(model.predict, [req.title])
     pred = pred[0]
@@ -199,7 +239,12 @@ async def predict(req: NewsRequest):
         proba = await run_in_threadpool(model.predict_proba, [req.title])
         conf = float(proba[0].max())
 
-    return {"category": pred, "confidence": conf}
+    result = {"category": pred, "confidence": conf}
+
+    # Cache the result
+    prediction_cache.set(cache_key, result)
+
+    return result
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Metadata"])
@@ -219,7 +264,7 @@ if __name__ == "__main__":
         "src.api.main:app",
         host="localhost",
         port=8000,
-        # workers=4,
+        workers=4,
         log_level="info",
         access_log=True,
         timeout_keep_alive=30,

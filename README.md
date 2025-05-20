@@ -90,6 +90,26 @@ The API now features:
 - Multi-worker support for handling concurrent requests
 - Thread pool for CPU-bound prediction tasks
 - Prometheus metrics integration
+- In-memory prediction caching with TTL support
+
+#### Caching System
+The API implements an efficient in-memory caching system for predictions:
+- Automatic caching of prediction results
+- Configurable TTL (Time To Live) through environment variables
+- Memory-efficient implementation using Python's built-in dictionary
+- Automatic cleanup of expired cache entries
+- Thread-safe operations
+
+To configure the cache TTL, add to your `.env` file:
+```sh
+CACHE_TTL=3600  # Cache TTL in seconds (default: 1 hour)
+```
+
+The cache provides:
+- Reduced latency for repeated requests
+- Lower resource usage by avoiding redundant computations
+- Consistent results for identical requests within TTL period
+- Automatic cache invalidation after TTL expiration
 
 - Access the docs at: http://localhost:8000/docs
 - The API is protected. To authenticate, you need to set an `API_KEY` environment variable before starting the server (e.g., in a `.env` file).
