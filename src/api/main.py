@@ -1,5 +1,5 @@
 """
-News Classifier API Version 0.4
+News Classifier API Version 0.5
 """
 
 import asyncio
@@ -7,9 +7,11 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import joblib
+import mlflow
+import yaml
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.responses import HTMLResponse
@@ -24,21 +26,70 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "news_classifier_logistic")
+MODEL_VERSION = os.getenv("MODEL_VERSION", 1)
 
 # ---------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------
 MODEL_DIR = Path(__file__).parent.parent.parent / "models"
-MODEL_PATH = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
+CONFIG_PATH = Path(__file__).parent.parent.parent / "configs" / "mlflow_config.yaml"
 model = None
+current_model_version = MODEL_VERSION
 thread_pool = ThreadPoolExecutor(max_workers=4)  # Adjust based on your CPU cores
+
+
+def load_mlflow_config():
+    """Load MLflow configuration from YAML file"""
+    with open(CONFIG_PATH, "r") as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+def load_model_from_registry(model_name: str, version: str = None) -> Tuple[object, str]:
+    """
+    Load the latest model from MLflow Model Registry.
+
+    Args:
+        model_name: Name of the model in the registry
+
+    Returns:
+        Tuple of (loaded_model, version_number)
+    """
+    config = load_mlflow_config()
+    mlflow.set_tracking_uri(config["tracking_uri"])
+
+    try:
+        if not current_model_version:
+            return None, None
+
+        model_uri = f"models:/{model_name}/{version}"
+        model = mlflow.sklearn.load_model(model_uri)
+        return model
+    except Exception as e:
+        print(f"Failed to load model from MLflow: {e}")
+        return None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global model
-    if MODEL_PATH and MODEL_PATH.exists():
-        model = joblib.load(MODEL_PATH)
+    global model, current_model_version
+    try:
+        # Try loading from MLflow registry first
+        model = load_model_from_registry(MODEL_NAME, current_model_version)
+        print(
+            f"Loaded {MODEL_NAME} version {current_model_version} from MLflow registry"
+        )
+        if model is None:
+            # Fallback to local model if MLflow loading fails
+            model_path = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
+            if model_path and model_path.exists():
+                model = joblib.load(model_path)
+                current_model_version = "local"
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        model = None
+        current_model_version = None
     yield
     thread_pool.shutdown()
 
@@ -97,6 +148,7 @@ class Prediction(BaseModel):
 
 class Info(BaseModel):
     model_loaded: bool
+    model_name: Optional[str] = None
     model_version: Optional[str] = None
     classes: Optional[List[str]] = None
 
@@ -119,10 +171,10 @@ async def info():
             "model_loaded": False,
         }
 
-    version = MODEL_PATH.stem.split("_")[-1]
     return {
         "model_loaded": True,
-        "model_version": version,
+        "model_name": MODEL_NAME,
+        "model_version": current_model_version,
         "classes": list(getattr(model, "classes_", [])),
     }
 
@@ -167,7 +219,7 @@ if __name__ == "__main__":
         "src.api.main:app",
         host="localhost",
         port=8000,
-        workers=4,
+        # workers=4,
         log_level="info",
         access_log=True,
         timeout_keep_alive=30,

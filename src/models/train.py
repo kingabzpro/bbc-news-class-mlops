@@ -173,9 +173,22 @@ def train_model(classifier_type="logistic", tune_hyperparams=True):
             logger.info("Training model without hyperparameter tuning")
             pipeline.fit(X_train, y_train)
 
-        # Log model
+        # Log model and register in Model Registry
         signature = infer_signature(X_val, pipeline.predict(X_val))
-        mlflow.sklearn.log_model(pipeline, "model", signature=signature)
+        model_name = f"news_classifier_{classifier_type}"
+
+        # Log the model
+        mlflow.sklearn.log_model(
+            pipeline, "model", signature=signature, registered_model_name=model_name
+        )
+
+        # Get the latest version of the model
+        client = mlflow.tracking.MlflowClient()
+        latest_versions = client.get_latest_versions(model_name)
+        if latest_versions:
+            logger.info(
+                f"Model registered successfully. Latest version: {latest_versions[0].version}"
+            )
 
         # Save model locally
         model_path = MODEL_DIR / f"news_classifier_{classifier_type}.joblib"
