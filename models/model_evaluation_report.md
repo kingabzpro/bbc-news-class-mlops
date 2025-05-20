@@ -1,8 +1,16 @@
 # Model Evaluation Report
 
-**Accuracy:** 0.8649
+## Overall Metrics
 
-## Classification Report
+- **Accuracy:** 0.8649
+- **F1 Score (weighted):** 0.8650
+- **Precision (weighted):** 0.8688
+- **Recall (weighted):** 0.8649
+- **Log Loss:** 0.4852
+- **ROC AUC:** 0.9811
+
+## Per-class Metrics
+
 ```
                precision    recall  f1-score   support
 
@@ -18,9 +26,17 @@ entertainment       0.86      0.84      0.85        38
 
 ```
 
-## Confusion Matrix
+## Visualizations
+
+### Confusion Matrix
 ![Confusion Matrix](confusion_matrix.png)
 
-## ROC Curve
+### ROC Curve
 ![ROC Curve](roc_auc_curves.png)
 
+## Model Information
+
+- **Model Name:** news_classifier_logistic
+- **Model Version:** 1
+- **Classes:** business, entertainment, politics, sport, tech
+- **Feature Count:** 222

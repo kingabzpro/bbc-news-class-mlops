@@ -160,6 +160,9 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
   ```
 - Open http://127.0.0.1:5000 to view experiments.
 
+### 8a. MLflow Model Registry
+The models are now stored in the MLflow Model Registry and retrived by evaluation and prediction APIs.
+
 ### 9. CI/CD
 - GitHub Actions will automatically lint, test, and check pipeline/API on push or PR to `main`.
 
@@ -189,6 +192,7 @@ prometheus.exe --config.file=prometheus.yml --web.listen-address=":9090"
 - **Machine Learning**: Scikit Learn
 - **Experiment Tracking**: MLflow
 - **Workflow Orchestration**: Prefect
+- **Model Registry**: MLflow
 - **Model Serving**: FastAPI
 - **Stress Testing**: Locust
 - **Monitoring**: Prometheus
