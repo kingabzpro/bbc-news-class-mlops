@@ -10,7 +10,7 @@ prefect>=3.4.0
 
 # API and serving
 fastapi>=0.115.12
-pydantic-settings>=4.12.2
+pydantic-settings==2.9.1
 uvicorn>=0.34.2
 prometheus-fastapi-instrumentator>=6.1.0
 
