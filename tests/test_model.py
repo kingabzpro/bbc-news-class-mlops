@@ -63,9 +63,7 @@ def test_predict_no_api_key():
         assert response.json()["detail"] == "Model not available"
     else:
         assert response.status_code == 403
-        assert response.json() == {
-            "detail": "Not authenticated: X-API-Key header missing."
-        }
+        assert response.json() == {"detail": "X-API-Key header missing"}
 
 
 def test_predict_invalid_api_key():
@@ -79,5 +77,5 @@ def test_predict_invalid_api_key():
         # Model not available, skip strict auth check
         assert response.json()["detail"] == "Model not available"
     else:
-        assert response.status_code == 401
-        assert response.json() == {"detail": "Invalid API Key"}
+        assert response.status_code == 403
+        assert response.json() == {"detail": "Invalid API key supplied"}

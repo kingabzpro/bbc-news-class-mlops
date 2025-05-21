@@ -19,7 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
+.pytest_cache
 # Jupyter Notebooks
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
