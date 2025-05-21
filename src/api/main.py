@@ -1,14 +1,16 @@
 """
-News Classifier API Version 0.5
+News Classifier API v0.6
+───────────────────────
+FastAPI-based micro-service for text-classification inference.
 """
 
 import asyncio
-import os
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import joblib
 import mlflow
@@ -19,198 +21,213 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_settings import BaseSettings
 
-# ---------------------------------------------------------------------
-# Environment Variables
-# ---------------------------------------------------------------------
-load_dotenv()
-
-API_KEY = os.getenv("API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "news_classifier_logistic")
-MODEL_VERSION = os.getenv("MODEL_VERSION", 1)
-CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))  # Cache TTL in seconds, default 1 hour
+# ───────────────────────────────────────────────────────────────────────────────
+# Settings
+# ───────────────────────────────────────────────────────────────────────────────
+load_dotenv()  # allow .env overrides for local dev
 
 
-# ---------------------------------------------------------------------
-# Cache Implementation
-# ---------------------------------------------------------------------
-class PredictionCache:
-    def __init__(self, ttl_seconds: int = 3600):
-        self.cache: Dict[str, Tuple[datetime, dict]] = {}
-        self.ttl = timedelta(seconds=ttl_seconds)
+class Settings(BaseSettings):
+    api_key: str | None = Field(default=None, env="API_KEY")
+    model_name: str = Field("news_classifier_logistic", env="MODEL_NAME")
+    model_version: str | int = Field(1, env="MODEL_VERSION")
+    cache_ttl: int = Field(3_600, env="CACHE_TTL")  # seconds
+    tracking_uri: str | None = Field(None, env="MLFLOW_TRACKING_URI")
+
+    @field_validator("model_version", mode="before")
+    def _coerce_version(cls, v):
+        return str(v) if v is not None else v
+
+    class Config:
+        extra = "ignore"  # ignore stray env vars
+
+
+settings = Settings()
+logger = logging.getLogger("news-api")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+# Paths
+BASE_DIR = Path(__file__).resolve().parent
+MODELS_DIR = BASE_DIR.parent.parent / "models"
+CONFIG_YAML = BASE_DIR.parent.parent / "configs" / "mlflow_config.yaml"
+
+# Shared thread pool for every CPU-bound call
+EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# In-memory timed cache
+# ───────────────────────────────────────────────────────────────────────────────
+class TTLCache:
+    def __init__(self, ttl_seconds: int):
+        self._ttl = timedelta(seconds=ttl_seconds)
+        self._store: Dict[str, Tuple[datetime, dict]] = {}
 
     def get(self, key: str) -> Optional[dict]:
-        if key not in self.cache:
+        ts_val = self._store.get(key)
+        if not ts_val:
             return None
-
-        timestamp, value = self.cache[key]
-        if datetime.now() - timestamp > self.ttl:
-            del self.cache[key]
+        ts, val = ts_val
+        if datetime.utcnow() - ts > self._ttl:
+            del self._store[key]
             return None
+        return val
 
-        return value
-
-    def set(self, key: str, value: dict):
-        self.cache[key] = (datetime.now(), value)
-
-    def clear(self):
-        self.cache.clear()
+    def set(self, key: str, value: dict) -> None:
+        self._store[key] = (datetime.utcnow(), value)
 
 
-# Initialize cache
-prediction_cache = PredictionCache(ttl_seconds=CACHE_TTL)
-
-# ---------------------------------------------------------------------
-# Model
-# ---------------------------------------------------------------------
-MODEL_DIR = Path(__file__).parent.parent.parent / "models"
-CONFIG_PATH = Path(__file__).parent.parent.parent / "configs" / "mlflow_config.yaml"
-model = None
-current_model_version = MODEL_VERSION
-thread_pool = ThreadPoolExecutor(max_workers=4)  # Adjust based on your CPU cores
+prediction_cache = TTLCache(settings.cache_ttl)
 
 
-def load_mlflow_config():
-    """Load MLflow configuration from YAML file"""
-    with open(CONFIG_PATH, "r") as file:
-        config = yaml.safe_load(file)
-    return config
+# ───────────────────────────────────────────────────────────────────────────────
+# Model loading helpers
+# ───────────────────────────────────────────────────────────────────────────────
+def _load_mlflow_cfg() -> dict:
+    if CONFIG_YAML.exists():
+        with CONFIG_YAML.open() as fh:
+            return yaml.safe_load(fh)
+    return {}
 
 
-def load_model_from_registry(
-    model_name: str, version: str = None
-) -> Tuple[object, str]:
-    """
-    Load the latest model from MLflow Model Registry.
+def _load_from_registry(name: str, version: str) -> Tuple[object, str]:
+    """Return (model, resolved_version).  Raises on failure."""
+    cfg = _load_mlflow_cfg()
 
-    Args:
-        model_name: Name of the model in the registry
+    uri = cfg.get("tracking_uri") or settings.tracking_uri
+    if not uri:
+        raise RuntimeError("MLflow tracking URI not configured")
+    mlflow.set_tracking_uri(uri)
 
-    Returns:
-        Tuple of (loaded_model, version_number)
-    """
-    config = load_mlflow_config()
-    mlflow.set_tracking_uri(config["tracking_uri"])
+    model_uri = f"models:/{name}/{version}"
+    logger.info("Loading model from registry: %s", model_uri)
+    model = mlflow.sklearn.load_model(model_uri)
+    return model, version
 
-    try:
-        if not current_model_version:
-            return None, None
 
-        model_uri = f"models:/{model_name}/{version}"
-        model = mlflow.sklearn.load_model(model_uri)
-        return model
-    except Exception as e:
-        print(f"Failed to load model from MLflow: {e}")
-        return None
+def _load_local_fallback() -> Tuple[object, str]:
+    pattern = (MODELS_DIR / "news_classifier_*.joblib").as_posix()
+    local_path = next(Path().glob(pattern), None)
+    if not local_path:
+        raise FileNotFoundError("No local model found matching pattern")
+    logger.warning("Falling back to local model: %s", local_path)
+    return joblib.load(local_path), "local"
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# FastAPI app & lifecycle
+# ───────────────────────────────────────────────────────────────────────────────
+app: FastAPI  # forward ref for typing
+model: object | None = None
+model_version: str | None = None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global model, current_model_version
+    global model, model_version
     try:
-        # Try loading from MLflow registry first
-        model = load_model_from_registry(MODEL_NAME, current_model_version)
-        print(
-            f"Loaded {MODEL_NAME} version {current_model_version} from MLflow registry"
+        # MLflow first, else disk
+        model, model_version = await asyncio.to_thread(
+            _load_from_registry, settings.model_name, settings.model_version
         )
-        if model is None:
-            # Fallback to local model if MLflow loading fails
-            model_path = next(MODEL_DIR.glob("news_classifier_*.joblib"), None)
-            if model_path and model_path.exists():
-                model = joblib.load(model_path)
-                current_model_version = "local"
     except Exception as e:
-        print(f"Error loading model: {e}")
-        model = None
-        current_model_version = None
+        logger.error("Registry load failed: %s", e)
+        try:
+            model, model_version = await asyncio.to_thread(_load_local_fallback)
+        except Exception as inner:
+            logger.critical("No model available: %s", inner)
+            model = model_version = None
     yield
-    thread_pool.shutdown()
+    EXECUTOR.shutdown(wait=True)
 
 
-# ---------------------------------------------------------------------
-# App
-# ---------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# App description (appears in /docs and /openapi.json)
+# ------------------------------------------------------------------------------
+APP_DESCRIPTION = """
+Async micro-service that classifies short news headlines into predefined
+categories using a scikit-learn model.  
+•  **/info** — model & class metadata  
+•  **/predict** — JSON inference endpoint (title → category + confidence)  
+•  Prometheus metrics exposed at **/metrics**
+"""
+
+# ------------------------------------------------------------------------------
+# FastAPI app
+# ------------------------------------------------------------------------------
 app = FastAPI(
     title="News Classifier API",
+    version="0.6",
+    description=APP_DESCRIPTION,  #  👈  added
     lifespan=lifespan,
     openapi_tags=[
-        {"name": "Metadata"},
-        {"name": "Inference"},
+        {"name": "Metadata", "description": "Service health & model details"},
+        {"name": "Inference", "description": "Predict category for a headline"},
     ],
 )
 
-# Mount static files
-templates_dir = Path(__file__).parent / "templates"
+# Static HTML/JS assets
+templates_dir = BASE_DIR / "templates"
 app.mount("/static", StaticFiles(directory=templates_dir), name="static")
 
-# ---------------------------------------------------------------------
-# Prometheus Metrics
-# ---------------------------------------------------------------------
+# Prometheus metrics
 Instrumentator().instrument(app).expose(app)
 
-
-# ---------------------------------------------------------------------
-# Authentication
-# ---------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────────
+# Auth
+# ───────────────────────────────────────────────────────────────────────────────
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-async def get_api_key(api_key_from_header: str = Security(api_key_header)):
-    if not API_KEY:  # Allow access if API_KEY is not set in the environment
-        return
-    if not api_key_from_header:
-        raise HTTPException(
-            status_code=403, detail="Not authenticated: X-API-Key header missing."
+async def get_api_key(header: str = Security(api_key_header)):
+    if settings.api_key and header != settings.api_key:
+        detail = (
+            "X-API-Key header missing" if header is None else "Invalid API key supplied"
         )
-    if api_key_from_header != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-    return api_key_from_header
+        raise HTTPException(status_code=403, detail=detail)
+    return header
 
 
-# ---------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────────
 # Schemas
-# ---------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────────
 class NewsRequest(BaseModel):
-    title: str
+    title: str = Field(..., min_length=3)
 
 
 class Prediction(BaseModel):
     category: str
-    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+    confidence: float | None = Field(None, ge=0, le=1)
 
 
 class Info(BaseModel):
     model_loaded: bool
-    model_name: Optional[str] = None
-    model_version: Optional[str] = None
-    classes: Optional[List[str]] = None
+    model_name: str | None = None
+    model_version: str | None = None
+    classes: list[str] | None = None
 
 
-# ---------------------------------------------------------------------
-# Helper Functions
-# ---------------------------------------------------------------------
-async def run_in_threadpool(func, *args):
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(thread_pool, func, *args)
+# ───────────────────────────────────────────────────────────────────────────────
+# Helper: run sync in threadpool
+# ───────────────────────────────────────────────────────────────────────────────
+async def _run_blocking(func, *args):
+    return await asyncio.to_thread(func, *args)
 
 
-# ---------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────────
+# End-points
+# ───────────────────────────────────────────────────────────────────────────────
 @app.get("/info", response_model=Info, tags=["Metadata"])
-async def info():
-    if model is None:
-        return {
-            "model_loaded": False,
-        }
-
-    return {
-        "model_loaded": True,
-        "model_name": MODEL_NAME,
-        "model_version": current_model_version,
-        "classes": list(getattr(model, "classes_", [])),
-    }
+async def info() -> Info:
+    return Info(
+        model_loaded=model is not None,
+        model_name=settings.model_name if model else None,
+        model_version=model_version,
+        classes=list(getattr(model, "classes_", [])) if model else None,
+    )
 
 
 @app.post(
@@ -219,53 +236,45 @@ async def info():
     tags=["Inference"],
     dependencies=[Depends(get_api_key)],
 )
-async def predict(req: NewsRequest):
+async def predict(req: NewsRequest) -> Prediction:
     if model is None:
-        raise HTTPException(503, "Model not available")
+        raise HTTPException(status_code=503, detail="Model not available")
 
-    # Check cache first
-    cache_key = req.title
-    cached_result = prediction_cache.get(cache_key)
-    if cached_result:
-        return cached_result
+    cached = prediction_cache.get(req.title)
+    if cached:
+        return Prediction(**cached)
 
-    # Run prediction in threadpool to avoid blocking
-    pred = await run_in_threadpool(model.predict, [req.title])
-    pred = pred[0]
-
-    # Get confidence if available
-    conf = None
-    if hasattr(model, "predict_proba"):
-        proba = await run_in_threadpool(model.predict_proba, [req.title])
-        conf = float(proba[0].max())
-
-    result = {"category": pred, "confidence": conf}
-
-    # Cache the result
-    prediction_cache.set(cache_key, result)
-
-    return result
+    try:
+        pred = await _run_blocking(model.predict, [req.title])
+        cat = pred[0]
+        conf = None
+        if hasattr(model, "predict_proba"):
+            proba = await _run_blocking(model.predict_proba, [req.title])
+            conf = float(proba[0].max())
+        result = {"category": cat, "confidence": conf}
+        prediction_cache.set(req.title, result)
+        return Prediction(**result)
+    except Exception as e:
+        logger.exception("Inference failure")
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Metadata"])
 async def root():
-    template_path = templates_dir / "index.html"
-    return template_path.read_text()
+    return (templates_dir / "index.html").read_text()
 
 
-# ---------------------------------------------------------------------
-# Local run
-# ---------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────────
+# Local dev entry-point
+# ───────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
 
-    # Run with multiple workers
     uvicorn.run(
         "src.api.main:app",
         host="localhost",
         port=8000,
         workers=4,
+        # reload=True,
         log_level="info",
-        access_log=True,
-        timeout_keep_alive=30,
     )

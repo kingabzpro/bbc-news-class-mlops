@@ -17,6 +17,7 @@ import yaml
 from mlflow.models import infer_signature
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -28,6 +29,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MaxAbsScaler
 from sklearn.svm import LinearSVC
 
 os.environ["JOBLIB_START_METHOD"] = "spawn"
@@ -83,17 +85,43 @@ def create_pipeline(classifier_type="logistic"):
         sklearn Pipeline
     """
     if classifier_type == "logistic":
-        classifier = LogisticRegression(max_iter=1000, random_state=42)
+        classifier = LogisticRegression(
+            max_iter=1000,
+            random_state=42,
+            n_jobs=-1,  # Use all CPU cores
+            solver="liblinear",  # Faster solver for small datasets
+        )
     elif classifier_type == "svm":
-        classifier = LinearSVC(random_state=42)
+        classifier = LinearSVC(
+            random_state=42,
+            dual=False,  # Faster for large datasets
+        )
     elif classifier_type == "rf":
-        classifier = RandomForestClassifier(random_state=42)
+        classifier = RandomForestClassifier(
+            random_state=42,
+            n_jobs=-1,  # Use all CPU cores
+            n_estimators=100,  # Reduced number of trees for faster inference
+        )
     else:
         raise ValueError(f"Unsupported classifier type: {classifier_type}")
 
     pipeline = Pipeline(
         [
-            ("tfidf", TfidfVectorizer(max_features=10000, stop_words="english")),
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    max_features=10000,
+                    stop_words="english",
+                    ngram_range=(1, 2),  # Use bigrams for better accuracy
+                    min_df=2,  # Ignore terms that appear in only one document
+                    max_df=0.95,  # Ignore terms that appear in more than 95% of documents
+                ),
+            ),
+            ("scaler", MaxAbsScaler()),  # Scale features for better performance
+            (
+                "feature_selection",
+                SelectKBest(chi2, k=5000),
+            ),  # Select top 5000 features
             ("classifier", classifier),
         ]
     )
