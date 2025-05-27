@@ -239,7 +239,7 @@ The dashboard includes panels for:
 - Response times
 - Cache performance
 - Model prediction confidence
-```
+
 
 #### Available Metrics
 - HTTP request duration
