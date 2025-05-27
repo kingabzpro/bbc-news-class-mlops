@@ -180,7 +180,7 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
   ```
 - Open http://127.0.0.1:5000 to view experiments.
 
-### 8a. MLflow Model Registry
+#### 8a. MLflow Model Registry
 The models are now stored in the MLflow Model Registry and retrived by evaluation and prediction APIs.
 
 ### 9. CI/CD
@@ -188,22 +188,71 @@ The models are now stored in the MLflow Model Registry and retrived by evaluatio
 
 ---
 
-### 8. FastAPI Monitoring with Prometheus
-To enable Prometheus to scrape metrics from your FastAPI application, you need to instrument your app to expose a metrics endpoint (commonly `/metrics`). This typically involves using a library like `prometheus-fastapi-instrumentator`.
-1. Go to the official Prometheus downloads page: https://prometheus.io/download/ 
-2. Extract the contents of the downloaded archive into this C:\Prometheus folder.
-3. Open the `prometheus.yml` file located in your Prometheus installation directory with a text editor and add the following configuration:
-```yml
-  - job_name: 'fastapi-app'
+### 10. Monitoring with Prometheus and Grafana
+
+#### 10.1 Prometheus Setup
+1. Go to the official Prometheus downloads page: https://prometheus.io/download/
+2. Extract the contents of the downloaded archive (already available in `prometheus-3.4.0-rc.0.windows-amd64/`)
+3. Configure Prometheus by updating `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: 'fastapi-news-api'
     scrape_interval: 5s
     static_configs:
-      - targets: ['localhost:8000'] 
+      - targets: ['localhost:8000']
 ```
-4. Start the Powershell in the same folder and run the following command:
+4. Start Prometheus:
 ```powershell
-prometheus.exe --config.file=prometheus.yml --web.listen-address=":9090"
+cd .\prometheus-3.4.0-rc.0.windows-amd64
+.\prometheus.exe --config.file=prometheus.yml
 ```
-5. Open your web browser and go to http://localhost:9090. You should see the Prometheus UI.
+5. Access Prometheus UI at http://localhost:9090
+
+#### 10.2 Grafana Setup
+1. Download and install Grafana from https://grafana.com/grafana/download
+2. Start Grafana:
+```powershell
+cd path\to\grafana\bin
+.\grafana-server.exe
+```
+3. Access Grafana at http://localhost:3000 (default credentials: admin/admin)
+4. Add Prometheus as a data source:
+   - Go to Configuration → Data Sources → Add data source
+   - Select Prometheus
+   - Set URL to http://localhost:9090
+   - Click "Save & Test"
+
+#### 10.3 FastAPI Metrics Dashboard
+Import the dashboard configuration from `dashboard.json` in the root directory:
+
+1. In Grafana, go to "+" → "Import"
+2. Click "Upload JSON file"
+3. Select the `dashboard.json` file
+4. Select your Prometheus data source
+5. Click "Import"
+
+The dashboard includes panels for:
+- Request rate and volume
+- Latency distribution
+- Predictions by category
+- Error rates
+- Response times
+- Cache performance
+- Model prediction confidence
+```
+
+#### Available Metrics
+- HTTP request duration
+- Request counts by endpoint
+- Response status codes
+- Cache hit/miss ratio
+- Model prediction latency
+- System metrics (CPU, memory)
+
+#### Monitoring URLs
+- FastAPI Metrics: http://localhost:8000/metrics
+- Prometheus UI: http://localhost:9090
+- Grafana Dashboard: http://localhost:3000
 
 ## MLOps Components
 
@@ -216,5 +265,6 @@ prometheus.exe --config.file=prometheus.yml --web.listen-address=":9090"
 - **Model Serving**: FastAPI
 - **Stress Testing**: Locust
 - **Monitoring**: Prometheus
+- **Dashboard**: Grafana
 - **Containerization**: Docker
 - **CI/CD**: GitHub Actions
