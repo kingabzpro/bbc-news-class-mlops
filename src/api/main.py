@@ -6,6 +6,7 @@ FastAPI-based micro-service for text-classification inference.
 
 import asyncio
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -16,11 +17,18 @@ import joblib
 import mlflow
 import yaml
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi import Depends, FastAPI, HTTPException, Response, Security
 from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -173,8 +181,104 @@ app = FastAPI(
 templates_dir = BASE_DIR / "templates"
 app.mount("/static", StaticFiles(directory=templates_dir), name="static")
 
+
 # Prometheus metrics
-Instrumentator().instrument(app).expose(app)
+class Metrics:
+    _instance = None
+    _initialized = False
+    _registry = CollectorRegistry()
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Metrics, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        if not Metrics._initialized:
+            # Request metrics
+            self.request_count = Counter(
+                "http_requests_total",
+                "Total number of HTTP requests",
+                ["method", "endpoint", "status"],
+                registry=self._registry,
+            )
+
+            self.request_latency = Histogram(
+                "http_request_duration_seconds",
+                "HTTP request latency in seconds",
+                ["method", "endpoint"],
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+                registry=self._registry,
+            )
+
+            # Cache metrics
+            self.cache_hits = Counter(
+                "prediction_cache_hits_total",
+                "Total number of cache hits for predictions",
+                ["category"],
+                registry=self._registry,
+            )
+
+            self.cache_misses = Counter(
+                "prediction_cache_misses_total",
+                "Total number of cache misses for predictions",
+                ["category"],
+                registry=self._registry,
+            )
+
+            # Prediction metrics
+            self.prediction_counter = Counter(
+                "news_predictions_total",
+                "Total number of predictions made",
+                ["category"],
+                registry=self._registry,
+            )
+
+            self.prediction_confidence = Histogram(
+                "news_prediction_confidence",
+                "Confidence scores of predictions",
+                ["category"],
+                buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                registry=self._registry,
+            )
+
+            self.prediction_rate = Gauge(
+                "news_prediction_rate",
+                "Current prediction rate per category",
+                ["category"],
+                registry=self._registry,
+            )
+            Metrics._initialized = True
+
+
+# Initialize metrics
+metrics = Metrics()
+
+
+# Metrics middleware
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+
+    # Record request metrics
+    metrics.request_count.labels(
+        method=request.method, endpoint=request.url.path, status=response.status_code
+    ).inc()
+
+    metrics.request_latency.labels(
+        method=request.method, endpoint=request.url.path
+    ).observe(duration)
+
+    return response
+
+
+# Metrics endpoint
+@app.get("/metrics")
+async def metrics_endpoint():
+    return Response(generate_latest(metrics._registry), media_type=CONTENT_TYPE_LATEST)
+
 
 # ───────────────────────────────────────────────────────────────────────────────
 # Auth
@@ -242,6 +346,15 @@ async def predict(req: NewsRequest) -> Prediction:
 
     cached = prediction_cache.get(req.title)
     if cached:
+        # Record cache hit
+        metrics.cache_hits.labels(category=cached["category"]).inc()
+        # Record prediction metrics for cache hits too
+        metrics.prediction_counter.labels(category=cached["category"]).inc()
+        if cached["confidence"] is not None:
+            metrics.prediction_confidence.labels(category=cached["category"]).observe(
+                cached["confidence"]
+            )
+        metrics.prediction_rate.labels(category=cached["category"]).inc()
         return Prediction(**cached)
 
     try:
@@ -251,6 +364,16 @@ async def predict(req: NewsRequest) -> Prediction:
         if hasattr(model, "predict_proba"):
             proba = await _run_blocking(model.predict_proba, [req.title])
             conf = float(proba[0].max())
+
+            # Record cache miss
+            metrics.cache_misses.labels(category=cat).inc()
+
+            # Record prediction metrics
+            metrics.prediction_counter.labels(category=cat).inc()
+            if conf is not None:
+                metrics.prediction_confidence.labels(category=cat).observe(conf)
+            metrics.prediction_rate.labels(category=cat).inc()
+
         result = {"category": cat, "confidence": conf}
         prediction_cache.set(req.title, result)
         return Prediction(**result)
@@ -274,7 +397,7 @@ if __name__ == "__main__":
         "src.api.main:app",
         host="localhost",
         port=8000,
-        workers=4,
-        # reload=True,
+        # workers=4,
+        reload=True,
         log_level="info",
     )
