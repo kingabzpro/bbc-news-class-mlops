@@ -1,4 +1,4 @@
-# my global config
+# Prometheus configuration for MLOps project monitoring
 global:
   scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
   evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
@@ -20,7 +20,29 @@ rule_files:
 # Here it's Prometheus itself.
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
-
-  - job_name: 'fastapi'
+  
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ['localhost:9090']
+
+  # FastAPI application metrics
+  - job_name: 'fastapi-news-api'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['fastapi:7860']
+    metrics_path: '/metrics'
+
+  # MLflow tracking server (if it exposes metrics)
+  - job_name: 'mlflow'
+    static_configs:
+      - targets: ['mlflow:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Prefect server monitoring
+  - job_name: 'prefect'
+    static_configs:
+      - targets: ['prefect:4200']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s

@@ -123,9 +123,10 @@ The cache provides:
        -d '{"title": "New research on climate change"}'
   ```
 
-### 5a. New Dockerfile: Build and Run with Docker
+### 5a. Docker Deployment Options
 
-You can also run the API using Docker. The Dockerfile will run tests (but not fail the build if they fail) and then launch the FastAPI app on port 7860.
+#### Option 1: Single Container with Dockerfile
+You can run the API using the standalone Dockerfile. The Dockerfile will run tests (but not fail the build if they fail) and then launch the FastAPI app on port 7860.
 
 1. **Build the Docker image:**
    ```sh
@@ -145,6 +146,60 @@ You can also run the API using Docker. The Dockerfile will run tests (but not fa
 
 3. **Access the API docs:**
    - Open http://localhost:7860/docs in your browser.
+
+#### Option 2: Full MLOps Stack with Docker Compose (Recommended)
+Deploy the complete MLOps infrastructure including Prefect, MLflow, Prometheus, Grafana, and FastAPI using Docker Compose.
+
+1. **Setup environment variables:**
+   ```sh
+   cp .env.example .env
+   # Edit .env file with your preferred settings
+   ```
+
+2. **Start all services:**
+   ```sh
+   docker-compose up -d
+   ```
+
+3. **Access the services:**
+   - **FastAPI API**: http://localhost:8000/docs
+   - **MLflow UI**: http://localhost:5000
+   - **Prefect UI**: http://localhost:4200
+   - **Prometheus UI**: http://localhost:9090
+   - **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+
+4. **Stop all services:**
+   ```sh
+   docker-compose down
+   ```
+
+5. **View logs:**
+   ```sh
+   # All services
+   docker-compose logs -f
+   
+   # Specific service
+   docker-compose logs -f fastapi
+   ```
+
+6. **Scale services (if needed):**
+   ```sh
+   docker-compose up -d --scale fastapi=3
+   ```
+
+#### Docker Compose Services Overview:
+- **FastAPI**: News classification API with metrics endpoint
+- **MLflow**: Experiment tracking and model registry
+- **Prefect**: Workflow orchestration and pipeline management
+- **Prometheus**: Metrics collection and monitoring
+- **Grafana**: Visualization dashboards for metrics and monitoring
+
+#### Data Persistence:
+The Docker Compose setup includes persistent volumes for:
+- MLflow experiments and artifacts
+- Prometheus metrics data
+- Grafana dashboards and settings
+- Prefect workflow database
 
 ### 6. Run Tests
 - Run all tests:

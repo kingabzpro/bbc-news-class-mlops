@@ -1,0 +1,164 @@
+# Docker Compose configuration for BBC News Classification MLOps Project
+# This file orchestrates Prefect, MLflow, Prometheus, Grafana, and FastAPI services
+version: '3.8'
+
+services:
+  # FastAPI Application Service
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-classification-api
+    ports:
+      - "8000:7860"  # Map host port 8000 to container port 7860
+    environment:
+      - API_KEY=${API_KEY:-default_api_key}
+      - CACHE_TTL=${CACHE_TTL:-3600}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PREFECT_API_URL=http://prefect:4200/api
+    volumes:
+      - ./data:/app/data  # Mount data directory for model access
+      - ./models:/app/models  # Mount models directory
+    networks:
+      - mlops-network
+    depends_on:
+      - mlflow
+      - prefect
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MLflow Tracking Server
+  mlflow:
+    image: mlflow/mlflow:latest
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"  # MLflow UI port
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:///mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow  # Persistent volume for MLflow data
+      - ./models:/mlflow/artifacts/models  # Share models with FastAPI
+    networks:
+      - mlops-network
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prefect Orion Server (Workflow Orchestration)
+  prefect:
+    image: prefecthq/prefect:2-python3.11
+    container_name: prefect-server
+    ports:
+      - "4200:4200"  # Prefect UI port
+    environment:
+      - PREFECT_ORION_API_HOST=0.0.0.0
+      - PREFECT_ORION_DATABASE_CONNECTION_URL=sqlite+aiosqlite:///prefect/orion.db
+      - PREFECT_API_URL=http://prefect:4200/api
+    volumes:
+      - prefect_data:/prefect  # Persistent volume for Prefect database
+      - ./src:/app/src  # Mount source code for pipeline access
+      - ./data:/app/data  # Mount data directory
+      - ./configs:/app/configs  # Mount configuration files
+    networks:
+      - mlops-network
+    command: prefect orion start --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus Monitoring Service
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-server
+    ports:
+      - "9090:9090"  # Prometheus UI port
+    environment:
+      - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-15d}
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro  # Mount config file
+      - prometheus_data:/prometheus  # Persistent volume for metrics data
+    networks:
+      - mlops-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Grafana Dashboard Service
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-dashboard
+    ports:
+      - "3000:3000"  # Grafana UI port
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana  # Persistent volume for Grafana data
+      - ./dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - mlops-network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Network Configuration
+networks:
+  mlops-network:
+    driver: bridge
+    name: mlops-network
+
+# Volume Configuration for Data Persistence
+volumes:
+  # MLflow persistent storage for experiments, models, and artifacts
+  mlflow_data:
+    driver: local
+    name: mlflow_data
+  
+  # Prefect persistent storage for workflow database and metadata
+  prefect_data:
+    driver: local
+    name: prefect_data
+  
+  # Prometheus persistent storage for metrics and time-series data
+  prometheus_data:
+    driver: local
+    name: prometheus_data
+  
+  # Grafana persistent storage for dashboards and configuration
+  grafana_data:
+    driver: local
+    name: grafana_data
