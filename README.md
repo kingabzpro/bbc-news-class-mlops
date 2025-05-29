@@ -268,3 +268,144 @@ The dashboard includes panels for:
 - **Dashboard**: Grafana
 - **Containerization**: Docker
 - **CI/CD**: GitHub Actions
+
+# News Classifier MLOps Stack
+
+This repository contains a complete MLOps stack for the News Classifier API, including workflow orchestration, model tracking, monitoring, and load testing capabilities.
+
+## Services
+
+- **FastAPI**: News classification API (port 8000)
+- **MLflow**: Model tracking and registry (port 5000)
+- **Prefect**: Workflow orchestration (port 4200)
+- **Prometheus**: Metrics collection (port 9090)
+- **Grafana**: Metrics visualization (port 3000)
+- **Locust**: Load testing (port 8089)
+
+## Prerequisites
+
+- Docker
+- Docker Compose
+- Python 3.8+
+
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+API_KEY=your-secure-api-key
+MODEL_NAME=news_classifier_logistic
+MODEL_VERSION=1
+```
+
+## Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd <repository-name>
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Access the services:
+   - FastAPI: http://localhost:8000
+   - MLflow: http://localhost:5000
+   - Prefect: http://localhost:4200
+   - Prometheus: http://localhost:9090
+   - Grafana: http://localhost:3000
+   - Locust: http://localhost:8089
+
+## Service Details
+
+### FastAPI
+- Main API endpoint for news classification
+- Exposes Prometheus metrics at `/metrics`
+- Requires API key for prediction endpoints
+
+### MLflow
+- Tracks model versions and experiments
+- Stores artifacts in persistent volume
+- PostgreSQL backend for metadata
+
+### Prefect
+- Orchestrates ML workflows
+- PostgreSQL backend for workflow state
+- Web UI for workflow monitoring
+
+### Prometheus
+- Collects metrics from all services
+- Stores time-series data in persistent volume
+- Configurable scrape intervals
+
+### Grafana
+- Visualizes metrics from Prometheus
+- Pre-configured dashboards
+- Persistent configuration storage
+
+### Locust
+- Load testing tool
+- Simulates user behavior
+- Configurable test scenarios
+
+## Monitoring
+
+1. Access Grafana (http://localhost:3000)
+   - Default credentials: admin/admin
+   - Import dashboards for:
+     - FastAPI metrics
+     - MLflow metrics
+     - System metrics
+
+2. View Prometheus metrics (http://localhost:9090)
+   - Query metrics directly
+   - View service health
+
+## Load Testing
+
+1. Access Locust (http://localhost:8089)
+2. Configure test parameters:
+   - Number of users
+   - Spawn rate
+   - Host URL
+3. Start the test and monitor results
+
+## Data Persistence
+
+The following data is persisted in Docker volumes:
+- MLflow artifacts
+- Prometheus metrics
+- Grafana configurations
+- Prefect workflow state
+- MLflow metadata
+
+## Stopping Services
+
+```bash
+docker-compose down
+```
+
+To remove all data volumes:
+```bash
+docker-compose down -v
+```
+
+## Troubleshooting
+
+1. Check service logs:
+   ```bash
+   docker-compose logs <service-name>
+   ```
+
+2. Verify service health:
+   ```bash
+   docker-compose ps
+   ```
+
+3. Restart specific service:
+   ```bash
+   docker-compose restart <service-name>
+   ```

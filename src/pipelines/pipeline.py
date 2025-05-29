@@ -21,19 +21,26 @@ from src.models.train import train_model
 # ------------------------------- Data layer ---------------------------------- #
 ################################################################################
 
-
 @task(retries=3, retry_delay_seconds=5, log_prints=True)
 def download_data() -> None:
     """Fetch raw BBC news data from Kaggle (idempotent)."""
-    download_bbc_dataset()
-    print("✔ Dataset downloaded")
+    try:
+        download_bbc_dataset()
+        print("✔ Dataset downloaded")
+    except Exception as e:
+        print(f"⚠ Skipping dataset download: {str(e)}")
+        print("Continuing with existing data...")
 
 
 @task(retries=3, retry_delay_seconds=5, log_prints=True)
 def preprocess_data() -> None:
     """Clean, split & tokenise the raw corpus."""
-    preprocess()
-    print("✔ Pre-processing complete")
+    try:
+        preprocess()
+        print("✔ Pre-processing complete")
+    except Exception as e:
+        print(f"⚠ Skipping pre-processing: {str(e)}")
+        print("Continuing with existing processed data...")
 
 
 ################################################################################
@@ -119,7 +126,9 @@ def api_smoke_test(
 
 @flow(name="mlops_pipeline")
 def mlops_pipeline(
-    model_name: str = "news_classifier_logistic", model_version: int = 1, duration_s: int = 10
+    model_name: str = "news_classifier_logistic",
+    model_version: int = 1,
+    duration_s: int = 10,
 ) -> None:
     """
     End-to-end orchestration entrypoint.

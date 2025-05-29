@@ -1,3 +1,5 @@
-# Example MLflow config for local tracking
-tracking_uri: "file:./mlruns"
+# MLflow config for local development
+tracking_uri: "http://mlflow:5000"
 experiment_name: "news-classifier"
+artifact_location: "/mlflow/artifacts"
+

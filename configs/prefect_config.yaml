@@ -1,3 +1,6 @@
 # Example Prefect config (can be expanded as needed)
+# Prefect config for local development
 default_storage: local
 logging_level: INFO
+server_url: "http://prefect:4200/api"
+api_url: "http://prefect:4200/api"

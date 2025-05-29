@@ -29,7 +29,7 @@ from prometheus_client import (
     Histogram,
     generate_latest,
 )
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -39,18 +39,30 @@ load_dotenv()  # allow .env overrides for local dev
 
 
 class Settings(BaseSettings):
-    api_key: str | None = Field(default=None, env="API_KEY")
-    model_name: str = Field("news_classifier_logistic", env="MODEL_NAME")
-    model_version: str | int = Field(1, env="MODEL_VERSION")
-    cache_ttl: int = Field(3_600, env="CACHE_TTL")  # seconds
-    tracking_uri: str | None = Field(None, env="MLFLOW_TRACKING_URI")
+    model_config = ConfigDict(extra="ignore")  # ignore stray env vars
+
+    api_key: str | None = Field(default=None, json_schema_extra={"env": "API_KEY"})
+    model_name: str = Field(
+        "news_classifier_logistic", json_schema_extra={"env": "MODEL_NAME"}
+    )
+    model_version: str | int = Field(1, json_schema_extra={"env": "MODEL_VERSION"})
+    cache_ttl: int = Field(
+        3600, json_schema_extra={"env": "CACHE_TTL"}
+    )  # Cache TTL in seconds (1 hour)
+    tracking_uri: str | None = Field(
+        None, json_schema_extra={"env": "MLFLOW_TRACKING_URI"}
+    )
 
     @field_validator("model_version", mode="before")
     def _coerce_version(cls, v):
         return str(v) if v is not None else v
 
-    class Config:
-        extra = "ignore"  # ignore stray env vars
+    @field_validator("cache_ttl", mode="before")
+    def _parse_cache_ttl(cls, v):
+        if isinstance(v, str):
+            # Remove any comments and strip whitespace
+            v = v.split("#")[0].strip()
+        return int(v)
 
 
 settings = Settings()
@@ -110,10 +122,11 @@ def _load_from_registry(name: str, version: str) -> Tuple[object, str]:
         raise RuntimeError("MLflow tracking URI not configured")
     mlflow.set_tracking_uri(uri)
 
-    model_uri = f"models:/{name}/{version}"
-    logger.info("Loading model from registry: %s", model_uri)
+    # Always use "latest" version regardless of input version
+    model_uri = f"models:/{name}/latest"
+    logger.info("Loading latest model from registry: %s", model_uri)
     model = mlflow.sklearn.load_model(model_uri)
-    return model, version
+    return model, "latest"
 
 
 def _load_local_fallback() -> Tuple[object, str]:
