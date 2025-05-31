@@ -56,7 +56,7 @@ services:
       - mlflow-data:/mlflow
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -77,12 +77,13 @@ services:
       - PREFECT_SERVER_API_HOST=0.0.0.0
       - PREFECT_SERVER_API_PORT=4200
       - PREFECT_HOME=/opt/prefect
-      - PREFECT_API_URL=http://prefect:4200/api
+      - PREFECT_API_URL=http://localhost:4200/api
+      - PREFECT_SERVER_API_URL=http://prefect:4200/api
     volumes:
       - prefect-data:/opt/prefect
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:4200/health').read().decode())"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -118,7 +119,7 @@ services:
       - ./configs:/app/configs:ro
       - mlflow-data:/mlflow
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/info"]
+      test: ["CMD", "curl", "-f", "http://api:8000/info"]
       interval: 30s
       timeout: 10s
       retries: 3
