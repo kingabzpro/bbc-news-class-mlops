@@ -1,411 +1,129 @@
-# News Classification MLOps Project
+# News Classification MLOps
 
-This MLOps project provides an end-to-end pipeline for training and deploying a news classification model using the BBC articles dataset from Kaggle.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MLOps](https://img.shields.io/badge/MLOps-Enabled-green.svg)](https://mlops.org)
 
-## Project Structure
+An end-to-end MLOps pipeline for training, deploying, and monitoring a news classification model using BBC articles dataset from Kaggle. This project demonstrates best practices in MLOps including model training, deployment, monitoring, and CI/CD.
 
-- `src/`: Source code
-  - `data/`: Data download and preprocessing
-  - `models/`: Model training and evaluation
-  - `api/`: FastAPI service for model serving
-  - `pipelines/`: Prefect workflows for orchestration
-- `tests/`: Unit and integration tests
-- `notebooks/`: Jupyter notebooks for exploration
-- `configs/`: Configuration files
-- `workflows/`: CI/CD workflows
+## 🚀 Features
 
-## Requirements
+- **FastAPI Service**: Async API with multi-worker support and API key authentication
+- **ML Pipeline**: Automated data processing, training, and evaluation using Prefect
+- **Model Management**: Experiment tracking and model versioning with MLflow
+- **Monitoring**: Real-time metrics and dashboards with Prometheus & Grafana
+- **Testing**: Unit tests, integration tests, and load testing with Locust
+- **Containerization**: Docker support for easy deployment
+- **CI/CD**: Automated testing and deployment with GitHub Actions
 
-- Python 3.10+
-- uv package manager
-- Access to Kaggle API
+## 📋 Prerequisites
 
-## Setup
+- Python 3.10 or higher
+- [uv](https://github.com/astral-sh/uv) for virtual environment and package management
+- Docker and Docker Compose (optional)
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/kingabzpro/bbc-news-class-mlops.git
-   cd bbc-news-class-mlops
-   ```
+## 🏗️ Project Structure
 
-2. Set up environment with uv:
-   ```
-   uv venv
-   .venv\Scripts\activate 
-   uv pip install -r requirements.txt
-   ```
-
-3. Run the training pipeline:
-   ```
-   python -m src.pipelines.pipeline
-   ```
-
-4. Start the API server:
-   ```
-   python -m src.api.main
-   ```
-
-## Usage Instructions
-
-### 1. Environment Setup
-- Install [uv](https://github.com/astral-sh/uv):
-  ```sh
-  pip install uv
-  ```
-- Create a virtual environment and install dependencies:
-  ```sh
-  uv venv
-  uv pip install -r requirements.txt
-  ```
-
-### 2. Kaggle API Setup
-- Create a Kaggle account and get your API token from https://www.kaggle.com/settings/account.
-- Place your `kaggle.json` in `%USERPROFILE%\.kaggle\` (Windows) or `~/.kaggle/` (Linux/Mac).
-
-### 3. Download and Preprocess Data
-- Download the dataset:
-  ```sh
-  python -m src.data.download
-  ```
-- Preprocess the dataset:
-  ```sh
-  python -m src.data.preprocess
-  ```
-
-### 4. Run the MLOps Pipeline
-- Orchestrate the full workflow (download, preprocess, train, evaluate):
-  ```sh
-  python -m src.pipelines.pipeline
-  ```
-
-### 5. Serve the Model API
-- Start the FastAPI server:
-  ```sh
-  # Development mode (4 workers)
-  python -m src.api.main
-  ```
-
-The API now features:
-- Async endpoints for improved performance
-- Multi-worker support for handling concurrent requests
-- Thread pool for CPU-bound prediction tasks
-- Prometheus metrics integration
-- In-memory prediction caching with TTL support
-
-#### Caching System
-The API implements an efficient in-memory caching system for predictions:
-- Automatic caching of prediction results
-- Configurable TTL (Time To Live) through environment variables
-- Memory-efficient implementation using Python's built-in dictionary
-- Automatic cleanup of expired cache entries
-- Thread-safe operations
-
-To configure the cache TTL, add to your `.env` file:
-```sh
-CACHE_TTL=3600  # Cache TTL in seconds (default: 1 hour)
+```
+.
+├── src/
+│   ├── data/         # Data download and preprocessing
+│   ├── models/       # Model training and evaluation
+│   ├── api/          # FastAPI service implementation
+│   └── pipelines/    # Prefect workflow definitions
+├── tests/            # Unit and integration tests
+├── notebooks/        # Jupyter notebooks for exploration
+├── configs/          # Configuration files
+└── workflows/        # CI/CD workflow definitions
 ```
 
-The cache provides:
-- Reduced latency for repeated requests
-- Lower resource usage by avoiding redundant computations
-- Consistent results for identical requests within TTL period
-- Automatic cache invalidation after TTL expiration
+## 🚀 Getting Started
 
-- Access the docs at: http://localhost:8000/docs
-- The API is protected. To authenticate, you need to set an `API_KEY` environment variable before starting the server (e.g., in a `.env` file).
-- When making requests to the `/predict` endpoint, include the API key in the `X-API-Key` header.
-
-  Example request using `curl`:
-  ```sh
-  curl -X POST "http://localhost:8000/predict" \
-       -H "Content-Type: application/json" \
-       -H "X-API-Key: YOUR_API_KEY" \
-       -d '{"title": "New research on climate change"}'
-  ```
-
-### 5a. New Dockerfile: Build and Run with Docker
-
-You can also run the API using Docker. The Dockerfile will run tests (but not fail the build if they fail) and then launch the FastAPI app on port 7860.
-
-1. **Build the Docker image:**
-   ```sh
-   docker build -t news_class_app .
-   ```
-
-2. **Run the Docker container:**
-   - You can set the `API_KEY` using an `.env` file or with the `--env` flag.
-   - Example using an `.env` file:
-     ```sh
-     docker run --env-file .env -p 7860:7860 news_class_app
-     ```
-   - Or set the variable directly:
-     ```sh
-     docker run -e API_KEY=your_api_key -p 7860:7860 news_class_app
-     ```
-
-3. **Access the API docs:**
-   - Open http://localhost:7860/docs in your browser.
-
-### 6. Run Tests
-- Run all tests:
-  ```sh
-  pytest
-  ```
-
-### 7. Load Testing with Locust
-- Install Locust:
-  ```sh
-  pip install locust
-  ```
-- Run the stress test:
-  ```sh
-  locust -f tests/stress_test.py
-  ```
-- Open http://localhost:8089 in your browser to access the Locust web interface
-- Configure the test:
-  - Number of users to simulate
-  - Spawn rate (users per second)
-  - Host (e.g., http://localhost:8000)
-- Start the test to simulate real-world load on your API
-- Monitor:
-  - Response times
-  - Request rates
-  - Error rates
-  - Number of users
-
-### 8. MLflow Tracking
-- MLflow UI (after running training):
-  ```sh
-  mlflow ui
-  ```
-- Open http://127.0.0.1:5000 to view experiments.
-
-#### 8a. MLflow Model Registry
-The models are now stored in the MLflow Model Registry and retrived by evaluation and prediction APIs.
-
-### 9. CI/CD
-- GitHub Actions will automatically lint, test, and check pipeline/API on push or PR to `main`.
-
----
-
-### 10. Monitoring with Prometheus and Grafana
-
-#### 10.1 Prometheus Setup
-1. Go to the official Prometheus downloads page: https://prometheus.io/download/
-2. Extract the contents of the downloaded archive (already available in `prometheus-3.4.0-rc.0.windows-amd64/`)
-3. Configure Prometheus by updating `prometheus.yml`:
-```yaml
-scrape_configs:
-  - job_name: 'fastapi-news-api'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['localhost:8000']
-```
-4. Start Prometheus:
-```powershell
-cd .\prometheus-3.4.0-rc.0.windows-amd64
-.\prometheus.exe --config.file=prometheus.yml
-```
-5. Access Prometheus UI at http://localhost:9090
-
-#### 10.2 Grafana Setup
-1. Download and install Grafana from https://grafana.com/grafana/download
-2. Start Grafana:
-```powershell
-cd path\to\grafana\bin
-.\grafana-server.exe
-```
-3. Access Grafana at http://localhost:3000 (default credentials: admin/admin)
-4. Add Prometheus as a data source:
-   - Go to Configuration → Data Sources → Add data source
-   - Select Prometheus
-   - Set URL to http://localhost:9090
-   - Click "Save & Test"
-
-#### 10.3 FastAPI Metrics Dashboard
-Import the dashboard configuration from `dashboard.json` in the root directory:
-
-1. In Grafana, go to "+" → "Import"
-2. Click "Upload JSON file"
-3. Select the `dashboard.json` file
-4. Select your Prometheus data source
-5. Click "Import"
-
-The dashboard includes panels for:
-- Request rate and volume
-- Latency distribution
-- Predictions by category
-- Error rates
-- Response times
-- Cache performance
-- Model prediction confidence
-
-
-#### Available Metrics
-- HTTP request duration
-- Request counts by endpoint
-- Response status codes
-- Cache hit/miss ratio
-- Model prediction latency
-- System metrics (CPU, memory)
-
-#### Monitoring URLs
-- FastAPI Metrics: http://localhost:8000/metrics
-- Prometheus UI: http://localhost:9090
-- Grafana Dashboard: http://localhost:3000
-
-## MLOps Components
-
-- **Package Management**: uv
-- **Data Management**: Kaggle
-- **Machine Learning**: Scikit Learn
-- **Experiment Tracking**: MLflow
-- **Workflow Orchestration**: Prefect
-- **Model Registry**: MLflow
-- **Model Serving**: FastAPI
-- **Stress Testing**: Locust
-- **Monitoring**: Prometheus
-- **Dashboard**: Grafana
-- **Containerization**: Docker
-- **CI/CD**: GitHub Actions
-
-# News Classifier MLOps Stack
-
-This repository contains a complete MLOps stack for the News Classifier API, including workflow orchestration, model tracking, monitoring, and load testing capabilities.
-
-## Services
-
-- **FastAPI**: News classification API (port 8000)
-- **MLflow**: Model tracking and registry (port 5000)
-- **Prefect**: Workflow orchestration (port 4200)
-- **Prometheus**: Metrics collection (port 9090)
-- **Grafana**: Metrics visualization (port 3000)
-- **Locust**: Load testing (port 8089)
-
-## Prerequisites
-
-- Docker
-- Docker Compose
-- Python 3.8+
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-API_KEY=your-secure-api-key
-MODEL_NAME=news_classifier_logistic
-MODEL_VERSION=1
-```
-
-## Getting Started
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd <repository-name>
-   ```
-
-2. Start the services:
-   ```bash
-   docker-compose up -d
-   ```
-
-3. Access the services:
-   - FastAPI: http://localhost:8000
-   - MLflow: http://localhost:5000
-   - Prefect: http://localhost:4200
-   - Prometheus: http://localhost:9090
-   - Grafana: http://localhost:3000
-   - Locust: http://localhost:8089
-
-## Service Details
-
-### FastAPI
-- Main API endpoint for news classification
-- Exposes Prometheus metrics at `/metrics`
-- Requires API key for prediction endpoints
-
-### MLflow
-- Tracks model versions and experiments
-- Stores artifacts in persistent volume
-- PostgreSQL backend for metadata
-
-### Prefect
-- Orchestrates ML workflows
-- PostgreSQL backend for workflow state
-- Web UI for workflow monitoring
-
-### Prometheus
-- Collects metrics from all services
-- Stores time-series data in persistent volume
-- Configurable scrape intervals
-
-### Grafana
-- Visualizes metrics from Prometheus
-- Pre-configured dashboards
-- Persistent configuration storage
-
-### Locust
-- Load testing tool
-- Simulates user behavior
-- Configurable test scenarios
-
-## Monitoring
-
-1. Access Grafana (http://localhost:3000)
-   - Default credentials: admin/admin
-   - Import dashboards for:
-     - FastAPI metrics
-     - MLflow metrics
-     - System metrics
-
-2. View Prometheus metrics (http://localhost:9090)
-   - Query metrics directly
-   - View service health
-
-## Load Testing
-
-1. Access Locust (http://localhost:8089)
-2. Configure test parameters:
-   - Number of users
-   - Spawn rate
-   - Host URL
-3. Start the test and monitor results
-
-## Data Persistence
-
-The following data is persisted in Docker volumes:
-- MLflow artifacts
-- Prometheus metrics
-- Grafana configurations
-- Prefect workflow state
-- MLflow metadata
-
-## Stopping Services
+### 1. Clone and Setup
 
 ```bash
+# Clone the repository
+git clone https://github.com/kingabzpro/bbc-news-class-mlops.git
+cd bbc-news-class-mlops
+
+# Create and activate virtual environment
+uv venv
+.venv\Scripts\activate    # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Install dependencies
+uv pip install -r requirements.txt
+```
+
+### 2. Environment Configuration
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update `.env` with your configuration:
+   ```env
+   API_KEY=your_api_key
+   CACHE_TTL=3600
+   KAGGLE_USERNAME=your_kaggle_username
+   KAGGLE_KEY=your_kaggle_api_key
+   ```
+
+> ⚠️ **Security Note**: Never commit your `.env` file to version control.
+
+
+
+### 3. Docker Compose
+
+```bash
+# Start all services
+docker-compose up -d
+```
+
+Available services:
+- FastAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Prometheus: [http://localhost:9090](http://localhost:9090)
+- Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin)
+- MLflow: [http://localhost:5000](http://localhost:5000)
+- Prefect: [http://localhost:4200](http://localhost:4200)
+- Locust: [http://localhost:8089](http://localhost:8089)
+
+
+```bash
+# Stop all services
 docker-compose down
 ```
 
-To remove all data volumes:
-```bash
-docker-compose down -v
-```
+## 🔧 Troubleshooting
 
-## Troubleshooting
+1. **API Connection Issues**
+   - Verify API key is correctly set in `.env`
+   - Check if the service is running on the correct port
+   - Ensure all required environment variables are set
 
-1. Check service logs:
-   ```bash
-   docker-compose logs <service-name>
-   ```
+2. **Docker Issues**
+   - Ensure Docker daemon is running
+   - Check port conflicts
+   - Verify Docker Compose version compatibility
 
-2. Verify service health:
-   ```bash
-   docker-compose ps
-   ```
+## 🛠️ Tech Stack
 
-3. Restart specific service:
-   ```bash
-   docker-compose restart <service-name>
-   ```
+- **Package Management**: uv
+- **Data Source**: Kaggle
+- **Machine Learning**: scikit-learn
+- **Model Management**: MLflow
+- **Workflow Orchestration**: Prefect
+- **API Framework**: FastAPI
+- **Load Testing**: Locust
+- **Monitoring**: Prometheus & Grafana
+- **Containerization**: Docker & Docker Compose
+- **CI/CD**: GitHub Actions
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
