@@ -153,7 +153,6 @@ graph TD
   subgraph Monitoring_and_Dashboard
     F --> I["Prometheus (Metrics)"]
     I --> J["Grafana (Visualization)"]
-    J --> K["DAX (Unified Dashboard)"]
   end
 
   subgraph Deployment
