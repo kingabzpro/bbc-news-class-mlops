@@ -171,7 +171,7 @@ graph TD
 Prefect orchestrates the workflow, running all steps in sequence and generating detailed logs for each stage.
 ![Prefect Dashboard](./images/prefect.png)
 
-## MLFlow
+### MLFlow
 
 MLflow tracks all model training metrics and manages the model registry.
 ![MLFlow Experiment](./images/mlflow_1.png)
@@ -180,24 +180,24 @@ The trained model is registered in the MLflow Model Registry and loaded by the F
 ![MLFlow Model Registry](./images/mlflow_2.png)
 
 
-## Machine Learning Application
+### Machine Learning Application
 The FastAPI application exposes three endpoints: `/info`, `/predict`, and `/metrics`.
 ![ML APP Docs](./images/api.png)
 
-## Locust
+### Locust
 Locust is used for stress testing the API, providing detailed statistics and real-time graphs of request performance.
 ![Locust Stats](./images/locust_1.png)
 Stress test graph to observe what happens at each second.
 ![Locust Graphs](./images/locust_2.png)
 
-## Prometheus
+### Prometheus
 Prometheus collects and displays system and application metrics, enabling real-time monitoring.
 ![Prometheus Dashboard](./images/prometheus.png)
 
-## Grafana
+### Grafana
 Grafana dashboards provide a comprehensive overview of the deployed model’s performance and system health.
 ![Grafana Dashboard](./images/grafana.png)
 
-## Docker
+### Docker
 Docker Desktop shows all running services and their respective ports, simplifying service management.
 ![Docker Dashboard](./images/docker.png)
