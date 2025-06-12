@@ -120,10 +120,85 @@ docker-compose down
 - **Containerization**: Docker & Docker Compose
 - **CI/CD**: GitHub Actions
 
-## 📝 License
+## 📝 Stats and Dashboards
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🤝 Contributing
+### Project Strcuture
+This project leverages a robust MLOps pipeline, integrating data ingestion, model training, evaluation, deployment, monitoring, and testing. The workflow is as follows:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```mermaid
+graph TD
+  subgraph Data_Pipeline
+    A["Kaggle API (Dataset)"] --> B["Data Processing"]
+    B --> C["Model Training & Evaluation (scikit-learn)"]
+    C -->|"Tracked by"| D["MLflow (Tracking & Model Registry)"]
+  end
+
+  subgraph Orchestration
+    E["Prefect (Workflow Orchestration)"]
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+  end
+
+  subgraph API_and_Testing
+    F["FastAPI (Loads Model from MLflow)"]
+    F -->|"Endpoints Tested by"| G["Pytest"]
+    F -->|"Stress Tested by"| H["Locust"]
+  end
+
+  D --> F
+
+  subgraph Monitoring_and_Dashboard
+    F --> I["Prometheus (Metrics)"]
+    I --> J["Grafana (Visualization)"]
+    J --> K["DAX (Unified Dashboard)"]
+  end
+
+  subgraph Deployment
+    L["Docker Compose"] --> F
+    L --> D
+    L --> I
+    L --> J
+    L --> H
+    L --> E
+  end
+
+  M["GitHub Actions (CI/CD, Optional)"] --> L
+```
+
+### Prefect
+Prefect orchestrates the workflow, running all steps in sequence and generating detailed logs for each stage.
+![Prefect Dashboard](./images/prefect.png)
+
+## MLFlow
+
+MLflow tracks all model training metrics and manages the model registry.
+![MLFlow Experiment](./images/mlflow_1.png)
+
+The trained model is registered in the MLflow Model Registry and loaded by the FastAPI application.
+![MLFlow Model Registry](./images/mlflow_2.png)
+
+
+## Machine Learning Application
+The FastAPI application exposes three endpoints: `/info`, `/predict`, and `/metrics`.
+![ML APP Docs](./images/api.png)
+
+## Locust
+Locust is used for stress testing the API, providing detailed statistics and real-time graphs of request performance.
+![Locust Stats](./images/locust_1.png)
+Stress test graph to observe what happens at each second.
+![Locust Graphs](./images/locust_2.png)
+
+## Prometheus
+Prometheus collects and displays system and application metrics, enabling real-time monitoring.
+![Prometheus Dashboard](./images/prometheus.png)
+
+## Grafana
+Grafana dashboards provide a comprehensive overview of the deployed model’s performance and system health.
+![Grafana Dashboard](./images/grafana.png)
+
+## Docker
+Docker Desktop shows all running services and their respective ports, simplifying service management.
+![Docker Dashboard](./images/docker.png)
