@@ -1,14 +1,3 @@
----
-title: New Classification MLOps
-emoji: 👁
-colorFrom: green
-colorTo: pink
-sdk: docker
-pinned: false
-license: mit
-short_description: A complete MLOps project.
----
-
 # News Classification MLOps
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -29,9 +18,7 @@ An end-to-end MLOps pipeline for training, deploying, and monitoring a news clas
 
 ## 📋 Prerequisites
 
-- Python 3.10 or higher
-- [uv](https://github.com/astral-sh/uv) for virtual environment and package management
-- Docker and Docker Compose (optional)
+- Docker and Docker Compose
 
 ## 🏗️ Project Structure
 
@@ -56,14 +43,6 @@ An end-to-end MLOps pipeline for training, deploying, and monitoring a news clas
 # Clone the repository
 git clone https://github.com/kingabzpro/bbc-news-class-mlops.git
 cd bbc-news-class-mlops
-
-# Create and activate virtual environment
-uv venv
-.venv\Scripts\activate    # Windows
-# source .venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-uv pip install -r requirements.txt
 ```
 
 ### 2. Environment Configuration
@@ -89,7 +68,7 @@ uv pip install -r requirements.txt
 
 ```bash
 # Start all services
-docker-compose up -d
+docker-compose up --build -d
 ```
 
 Available services:
