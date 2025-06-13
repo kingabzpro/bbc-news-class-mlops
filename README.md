@@ -41,8 +41,8 @@ An end-to-end MLOps pipeline for training, deploying, and monitoring a news clas
 
 ```bash
 # Clone the repository
-git clone https://github.com/kingabzpro/bbc-news-class-mlops.git
-cd bbc-news-class-mlops
+git clone https://github.com/kingabzpro/A-to-Z-MLOps.git
+cd A-to-Z-MLOps
 ```
 
 ### 2. Environment Configuration
