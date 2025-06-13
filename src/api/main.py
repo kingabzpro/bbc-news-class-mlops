@@ -409,7 +409,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "src.api.main:app",
         host="localhost",
-        port=8000,
+        port=7860,
         # workers=4,
         reload=True,
         log_level="info",

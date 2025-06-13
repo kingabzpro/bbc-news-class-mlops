@@ -72,7 +72,7 @@ docker-compose up -d
 ```
 
 Available services:
-- FastAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- FastAPI: [http://localhost:7860/docs](http://localhost:7860/docs)
 - Prometheus: [http://localhost:9090](http://localhost:9090)
 - Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin)
 - MLflow: [http://localhost:5000](http://localhost:5000)

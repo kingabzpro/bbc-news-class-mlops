@@ -102,7 +102,7 @@ services:
     #   context: .
     #   dockerfile: Dockerfile
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-7860}:7860"
     environment:
       API_KEY: ${API_KEY}
       MODEL_NAME: ${MODEL_NAME}
@@ -124,7 +124,7 @@ services:
       - ./configs:/app/configs:ro
       - mlflow-data:/mlflow
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://api:8000/info"]
+      test: ["CMD", "curl", "-f", "http://api:7860/info"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -144,10 +144,10 @@ services:
     command: 
       - |
         pip install python-dotenv
-        exec locust -f /home/locust/locustfile.py --host=http://api:8000
+        exec locust -f /home/locust/locustfile.py --host=http://api:7860
     environment:
       API_KEY: ${API_KEY}
-      TARGET_HOST: http://api:8000
+      TARGET_HOST: http://api:7860
       LOCUST_MODE: ${LOCUST_MODE:-standalone}
       LOCUST_USERS: ${LOCUST_USERS:-100}
       LOCUST_SPAWN_RATE: ${LOCUST_SPAWN_RATE:-10}
