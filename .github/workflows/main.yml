@@ -37,7 +37,7 @@ jobs:
         with:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/A-to-Z-MLOps
-            ghcr.io/${{ github.repository }}
+            ghcr.io/kingabzpro/A-to-Z-MLOps
 
       - name: Build and push Docker images
         id: push
@@ -51,6 +51,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}:latest
+          subject-name: ghcr.io/kingabzpro/A-to-Z-MLOps:latest
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
