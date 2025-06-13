@@ -11,8 +11,8 @@ jobs:
     name: Push Docker image to Docker Hub and GitHub Container Registry
     runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
+      packages: write
       attestations: write
       id-token: write
     steps:
@@ -61,6 +61,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}
+          subject-name: ghcr.io/${{ github.repository_owner }}/a-to-z-mlops
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
