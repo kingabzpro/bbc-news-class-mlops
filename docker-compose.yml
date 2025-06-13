@@ -97,9 +97,10 @@ services:
 
   # FastAPI application
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/kingabzpro/a-to-z-mlops:main
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     ports:
       - "${API_PORT:-8000}:8000"
     environment:

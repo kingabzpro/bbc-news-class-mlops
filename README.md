@@ -68,7 +68,7 @@ cd bbc-news-class-mlops
 
 ```bash
 # Start all services
-docker-compose up --build -d
+docker-compose up -d
 ```
 
 Available services:
@@ -84,6 +84,7 @@ Available services:
 # Stop all services
 docker-compose down
 ```
+
 
 ## 🔧 Troubleshooting
 
@@ -185,7 +186,7 @@ Prometheus collects and displays system and application metrics, enabling real-t
 ![Prometheus Dashboard](./images/prometheus.png)
 
 ### Grafana
-Grafana dashboards provide a comprehensive overview of the deployed model’s performance and system health.
+Grafana dashboards provide a comprehensive overview of the deployed model's performance and system health.
 ![Grafana Dashboard](./images/grafana.png)
 
 ### Docker

@@ -62,4 +62,4 @@ jobs:
         with:
           subject-name: ghcr.io/kingabzpro/A-to-Z-MLOps
           subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: false
+          push-to-registry: true
