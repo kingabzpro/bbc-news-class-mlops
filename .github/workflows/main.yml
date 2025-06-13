@@ -51,6 +51,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/kingabzpro/A-to-Z-MLOps:latest
+          subject-name: ghcr.io/kingabzpro/A-to-Z-MLOps
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
