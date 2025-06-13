@@ -36,7 +36,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/a-mlops
+            ${{ secrets.DOCKERHUB_USERNAME }}/A-to-Z-MLOps
             ghcr.io/${{ github.repository }}
 
       - name: Build and push Docker images
@@ -51,6 +51,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}
+          subject-name: ghcr.io/${{ github.repository }}:latest
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
