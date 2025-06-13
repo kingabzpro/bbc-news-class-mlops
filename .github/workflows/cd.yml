@@ -1,0 +1,19 @@
+name: Continuous Deployment
+on:
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types:
+      - completed
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deployment To Hugging Face
+        env:
+          HF: ${{ secrets.HF }}
+        run: make deploy HF=$HF

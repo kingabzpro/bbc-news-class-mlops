@@ -100,14 +100,14 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Expose the port
-EXPOSE 8000
+EXPOSE 7860
 
 # Add health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:8000/info || exit 1
+    CMD curl -f http://localhost:7860/info || exit 1
 
 # Use entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Command to run the application
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
