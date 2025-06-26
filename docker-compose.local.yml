@@ -1,0 +1,173 @@
+services:
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - mlops-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./configs/grafana:/etc/grafana/provisioning/dashboards:ro
+      - ./configs/grafana/dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json:ro
+      - ./configs/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./configs/grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml:ro
+      - ./configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: ${GF_USERS_ALLOW_SIGN_UP:-false}
+    env_file:
+      - .env
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - mlops-network
+
+  # MLflow tracking server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    command: >
+      sh -c "
+        mkdir -p /mlflow/artifacts &&
+        chmod -R 777 /mlflow &&
+        mlflow server --host=0.0.0.0 --port=5000 --backend-store-uri=sqlite:///mlflow/mlflow.db --default-artifact-root=/mlflow/artifacts --serve-artifacts
+      "
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - mlflow-data:/mlflow
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mlops-network
+
+  # Prefect orchestration server
+  prefect:
+    image: prefecthq/prefect:3-latest
+    ports:
+      - "${PREFECT_PORT:-4200}:4200"
+    command: >
+      sh -c "
+        prefect server start --host 0.0.0.0 --port 4200
+      "
+    environment:
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_SERVER_API_PORT=4200
+      - PREFECT_HOME=/opt/prefect
+      - PREFECT_API_URL=http://localhost:4200/api
+      - PREFECT_SERVER_API_URL=http://prefect:4200/api
+    volumes:
+      - prefect-data:/opt/prefect
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:4200/health').read().decode())"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mlops-network
+
+  # FastAPI application
+  api:
+    image: ghcr.io/kingabzpro/a-to-z-mlops:main
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-7860}:7860"
+    environment:
+      API_KEY: ${API_KEY}
+      MODEL_NAME: ${MODEL_NAME}
+      MODEL_VERSION: ${MODEL_VERSION:-1}
+      CACHE_TTL: ${CACHE_TTL:-3600}
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME}
+      KAGGLE_API_KEY: ${KAGGLE_API_KEY}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      PREFECT_API_URL: http://prefect:4200/api
+      PREFECT_SERVER_API_URL: http://prefect:4200/api
+      RUN_PIPELINE: ${RUN_PIPELINE:-false}
+    env_file:
+      - .env
+    depends_on:
+      - mlflow
+      - prefect
+    restart: unless-stopped
+    volumes:
+      - ./configs:/app/configs:ro
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://api:7860/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mlops-network
+
+  # Load testing with Locust
+  locust:
+    image: locustio/locust:latest
+    ports:
+      - "${LOCUST_PORT:-8089}:8089"
+    volumes:
+      - ./tests/stress_test.py:/home/locust/locustfile.py:ro
+      - ./.env:/home/locust/.env:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command: 
+      - |
+        pip install python-dotenv
+        exec locust -f /home/locust/locustfile.py --host=http://api:7860
+    environment:
+      API_KEY: ${API_KEY}
+      TARGET_HOST: http://api:7860
+      LOCUST_MODE: ${LOCUST_MODE:-standalone}
+      LOCUST_USERS: ${LOCUST_USERS:-100}
+      LOCUST_SPAWN_RATE: ${LOCUST_SPAWN_RATE:-10}
+    env_file:
+      - .env
+    depends_on:
+      - api
+    networks:
+      - mlops-network
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  mlflow-data:
+    driver: local
+  prefect-data:
+    driver: local
+
+networks:
+  mlops-network:
+    driver: bridge
