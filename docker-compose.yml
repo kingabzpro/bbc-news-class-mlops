@@ -1,99 +1,87 @@
 services:
-  # Traefik reverse proxy with enhanced security
+  # Traefik reverse proxy - Production configuration
   traefik:
     image: traefik:v3.0
     ports:
       - "80:80"
       - "443:443"
-      # Optional: Expose Traefik dashboard (should be protected in production)
-      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
     command:
-      # API and dashboard
+      # API and Dashboard (now secure)
       - "--api.dashboard=true"
-      - "--api.insecure=false"  # Secure dashboard access
+      - "--log.level=INFO"
+      - "--accesslog=true"
       # Docker provider
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=mlops-network"
-      # Entrypoints with enhanced security
+      # Entrypoints (HTTP and HTTPS)
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # HTTP to HTTPS redirect
+      # HTTP to HTTPS redirection
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      # SSL/TLS configuration
-      - "--entrypoints.websecure.http.tls=true"
-      - "--entrypoints.websecure.http.tls.options=default"
-      # Connection limits for DDoS protection
-      - "--entrypoints.web.transport.respondingTimeouts.readTimeout=10s"
-      - "--entrypoints.web.transport.respondingTimeouts.writeTimeout=10s"
-      - "--entrypoints.web.transport.respondingTimeouts.idleTimeout=180s"
-      - "--entrypoints.websecure.transport.respondingTimeouts.readTimeout=10s"
-      - "--entrypoints.websecure.transport.respondingTimeouts.writeTimeout=10s"
-      - "--entrypoints.websecure.transport.respondingTimeouts.idleTimeout=180s"
-      # Let's Encrypt for SSL
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.keytype=EC256"  # Use elliptic curve for better performance
-      # Uncomment for Let's Encrypt staging (for testing)
-      # - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-      # Logging
-      - "--log.level=INFO"
-      - "--accesslog=true"
-      - "--accesslog.filters.statusCodes=400-499,500-599"  # Log errors for security monitoring
-      # Metrics for monitoring
-      - "--metrics.prometheus=true"
-      - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
+      # Let's Encrypt configuration
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik-certificates:/letsencrypt
-      - traefik-logs:/var/log/traefik
+      - traefik-certs:/letsencrypt
     restart: unless-stopped
     networks:
       - mlops-network
-    environment:
-      # Cloudflare settings (optional - for additional DDoS protection)
-      CF_API_EMAIL: ${CF_API_EMAIL:-}
-      CF_API_KEY: ${CF_API_KEY:-}
     labels:
       - "traefik.enable=true"
-      # Traefik dashboard with auth
-      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
+      # Global HTTP to HTTPS redirection
+      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # Traefik dashboard router (secure)
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik.middlewares=dashboard-auth,security-headers,rate-limit-dashboard"
-      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_AUTH:-admin:$$2y$$10$$...}"
-      # Enhanced rate limiting for dashboard
-      - "traefik.http.middlewares.rate-limit-dashboard.ratelimit.average=10"
-      - "traefik.http.middlewares.rate-limit-dashboard.ratelimit.burst=20"
-      - "traefik.http.middlewares.rate-limit-dashboard.ratelimit.period=1m"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      # Basic Auth middleware for the dashboard
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_USER}:${TRAEFIK_PASSWORD_HASHED}"
 
-  # CrowdSec for advanced DDoS protection (optional but recommended)
-  crowdsec:
-    image: crowdsecurity/crowdsec:latest
+  # PostgreSQL for MLflow
+  postgres-mlflow:
+    image: postgres:13
     environment:
-      COLLECTIONS: "crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/whitelist-good-actors"
-      GID: "${GID-1000}"
+      POSTGRES_USER: ${MLFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${MLFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${MLFLOW_DB_NAME}
     volumes:
-      - crowdsec-db:/var/lib/crowdsec/data/
-      - crowdsec-config:/etc/crowdsec/
-      - traefik-logs:/var/log/traefik:ro
+      - postgres-mlflow-data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
       - mlops-network
 
-  # CrowdSec bouncer for Traefik
-  crowdsec-bouncer:
-    image: crowdsecurity/cs-firewall-bouncer:latest
-    environment:
-      CROWDSEC_BOUNCER_API_KEY: ${CROWDSEC_BOUNCER_API_KEY:-}
-      CROWDSEC_AGENT_HOST: crowdsec:8080
+  # MLflow tracking server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://${MLFLOW_DB_USER}:${MLFLOW_DB_PASSWORD}@postgres-mlflow:5432/${MLFLOW_DB_NAME}
+      --default-artifact-root /mlflow/artifacts
+      --serve-artifacts
     depends_on:
-      - crowdsec
+      - postgres-mlflow
+    volumes:
+      - mlflow-data:/mlflow/artifacts
     restart: unless-stopped
     networks:
       - mlops-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mlflow.rule=Host(`mlflow.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.mlflow.entrypoints=websecure"
+      - "traefik.http.routers.mlflow.tls.certresolver=myresolver"
+      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
 
   # Prometheus for metrics
   prometheus:
@@ -113,12 +101,10 @@ services:
       - mlops-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prometheus.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.${DOMAIN_NAME}`)"
       - "traefik.http.routers.prometheus.entrypoints=websecure"
-      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.prometheus.tls.options=default"
+      - "traefik.http.routers.prometheus.tls.certresolver=myresolver"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-      - "traefik.http.routers.prometheus.middlewares=auth,security-headers,rate-limit-standard,compress"
 
   # Grafana for visualization
   grafana:
@@ -126,234 +112,78 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./configs/grafana:/etc/grafana/provisioning/dashboards:ro
-      - ./configs/grafana/dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json:ro
-      - ./configs/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
-      - ./configs/grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml:ro
-      - ./configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
     environment:
-      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: ${GF_USERS_ALLOW_SIGN_UP:-false}
-      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN:-localhost}
-      GF_SECURITY_COOKIE_SECURE: "true"
-      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "true"
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_ROOT_URL: https://grafana.${DOMAIN_NAME}
     env_file:
       - .env
-    depends_on:
-      - prometheus
     restart: unless-stopped
     networks:
       - mlops-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN_NAME}`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
-      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.grafana.tls.options=default"
+      - "traefik.http.routers.grafana.tls.certresolver=myresolver"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-      - "traefik.http.routers.grafana.middlewares=security-headers,rate-limit-standard,compress"
-
-  # MLflow tracking server
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
-    command: >
-      sh -c "
-        mkdir -p /mlflow/artifacts &&
-        chmod -R 777 /mlflow &&
-        mlflow server --host=0.0.0.0 --port=5000 --backend-store-uri=sqlite:///mlflow/mlflow.db --default-artifact-root=/mlflow/artifacts --serve-artifacts
-      "
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-    volumes:
-      - mlflow-data:/mlflow
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - mlops-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mlflow.rule=Host(`mlflow.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.mlflow.entrypoints=websecure"
-      - "traefik.http.routers.mlflow.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.mlflow.tls.options=default"
-      - "traefik.http.services.mlflow.loadbalancer.server.port=5000"
-      - "traefik.http.routers.mlflow.middlewares=auth,security-headers,rate-limit-standard,compress"
 
   # Prefect orchestration server
   prefect:
     image: prefecthq/prefect:3-latest
-    command: >
-      sh -c "
-        prefect server start --host 0.0.0.0 --port 4200
-      "
+    command: prefect server start --host 0.0.0.0 --port 4200
     environment:
-      - PREFECT_SERVER_API_HOST=0.0.0.0
-      - PREFECT_SERVER_API_PORT=4200
-      - PREFECT_HOME=/opt/prefect
-      - PREFECT_API_URL=http://localhost:4200/api
-      - PREFECT_SERVER_API_URL=http://prefect:4200/api
+      PREFECT_UI_API_URL: https://prefect.${DOMAIN_NAME}/api
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_SERVER_API_PORT: 4200
+      PREFECT_HOME: /opt/prefect
     volumes:
       - prefect-data:/opt/prefect
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://localhost:4200/health').read().decode())"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - mlops-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.prefect.rule=Host(`prefect.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.prefect.rule=Host(`prefect.${DOMAIN_NAME}`)"
       - "traefik.http.routers.prefect.entrypoints=websecure"
-      - "traefik.http.routers.prefect.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.prefect.tls.options=default"
+      - "traefik.http.routers.prefect.tls.certresolver=myresolver"
       - "traefik.http.services.prefect.loadbalancer.server.port=4200"
-      - "traefik.http.routers.prefect.middlewares=auth,security-headers,rate-limit-standard,compress"
 
   # FastAPI application
   api:
     image: ghcr.io/kingabzpro/a-to-z-mlops:main
-    environment:
-      API_KEY: ${API_KEY}
-      MODEL_NAME: ${MODEL_NAME}
-      MODEL_VERSION: ${MODEL_VERSION:-1}
-      CACHE_TTL: ${CACHE_TTL:-3600}
-      KAGGLE_USERNAME: ${KAGGLE_USERNAME}
-      KAGGLE_API_KEY: ${KAGGLE_API_KEY}
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      PREFECT_API_URL: http://prefect:4200/api
-      PREFECT_SERVER_API_URL: http://prefect:4200/api
-      RUN_PIPELINE: ${RUN_PIPELINE:-false}
     env_file:
       - .env
+    environment:
+      # Use internal Docker network URLs for service-to-service communication
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      PREFECT_API_URL: http://prefect:4200/api
     depends_on:
       - mlflow
       - prefect
     restart: unless-stopped
-    volumes:
-      - ./configs:/app/configs:ro
-      - mlflow-data:/mlflow
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://api:7860/info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - mlops-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN_NAME}`)"
       - "traefik.http.routers.api.entrypoints=websecure"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.api.tls.options=default"
+      - "traefik.http.routers.api.tls.certresolver=myresolver"
       - "traefik.http.services.api.loadbalancer.server.port=7860"
-      - "traefik.http.routers.api.middlewares=api-auth,security-headers,rate-limit-api,compress,request-size-limit,ip-whitelist"
 
-  # Load testing with Locust
-  locust:
-    image: locustio/locust:latest
-    volumes:
-      - ./tests/stress_test.py:/home/locust/locustfile.py:ro
-      - ./.env:/home/locust/.env:ro
-    entrypoint: ["/bin/bash", "-c"]
-    command: 
-      - |
-        pip install python-dotenv
-        exec locust -f /home/locust/locustfile.py --host=http://api:7860
-    environment:
-      API_KEY: ${API_KEY}
-      TARGET_HOST: http://api:7860
-      LOCUST_MODE: ${LOCUST_MODE:-standalone}
-      LOCUST_USERS: ${LOCUST_USERS:-100}
-      LOCUST_SPAWN_RATE: ${LOCUST_SPAWN_RATE:-10}
-    env_file:
-      - .env
-    depends_on:
-      - api
-    networks:
-      - mlops-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.locust.rule=Host(`locust.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.locust.entrypoints=websecure"
-      - "traefik.http.routers.locust.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.locust.tls.options=default"
-      - "traefik.http.services.locust.loadbalancer.server.port=8089"
-      - "traefik.http.routers.locust.middlewares=auth,security-headers,rate-limit-standard"
-
-  # Global middleware definitions
-  traefik-middleware:
-    image: alpine:latest
-    command: ["echo", "Middleware container - exits immediately"]
-    networks:
-      - mlops-network
-    labels:
-      # Enhanced security headers
-      - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
-      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
-      - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-      - "traefik.http.middlewares.security-headers.headers.featurePolicy=accelerometer 'none'; ambient-light-sensor 'none'; autoplay 'none'; camera 'none'; encrypted-media 'none'; fullscreen 'self'; geolocation 'none'; gyroscope 'none'; magnetometer 'none'; microphone 'none'; midi 'none'; payment 'none'; picture-in-picture 'none'; speaker 'none'; sync-xhr 'none'; usb 'none'; vr 'none'"
-      - "traefik.http.middlewares.security-headers.headers.contentSecurityPolicy=default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'"
-      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
-      - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
-      - "traefik.http.middlewares.security-headers.headers.forceSTSHeader=true"
-      
-      # Rate limiting middlewares - different tiers for different services
-      - "traefik.http.middlewares.rate-limit-api.ratelimit.average=50"
-      - "traefik.http.middlewares.rate-limit-api.ratelimit.burst=100"
-      - "traefik.http.middlewares.rate-limit-api.ratelimit.period=1s"
-      - "traefik.http.middlewares.rate-limit-api.ratelimit.sourcecriterion.ipstrategy.depth=2"
-      
-      - "traefik.http.middlewares.rate-limit-standard.ratelimit.average=100"
-      - "traefik.http.middlewares.rate-limit-standard.ratelimit.burst=200"
-      - "traefik.http.middlewares.rate-limit-standard.ratelimit.period=1m"
-      
-      # Basic auth middleware
-      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_AUTH:-admin:$$2y$$10$$...}"
-      
-      # API key middleware
-      - "traefik.http.middlewares.api-auth.headers.customrequestheaders.X-API-Key=${API_KEY}"
-      
-      # Compression
-      - "traefik.http.middlewares.compress.compress=true"
-      
-      # Request size limit (10MB default)
-      - "traefik.http.middlewares.request-size-limit.buffering.maxRequestBodyBytes=10485760"
-      
-      # IP whitelist (optional - uncomment and configure)
-      # - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=192.168.1.0/24,10.0.0.0/8"
-      
-      # SSL/TLS options
-      - "traefik.tls.options.default.minVersion=VersionTLS12"
-      - "traefik.tls.options.default.cipherSuites=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+  # Locust is a testing tool and typically not deployed to production.
+  # It is commented out but can be enabled for staging/testing environments.
+  # locust:
+  #   ...
 
 volumes:
   prometheus-data:
-    driver: local
   grafana-data:
-    driver: local
   mlflow-data:
-    driver: local
   prefect-data:
-    driver: local
-  traefik-certificates:
-    driver: local
-  traefik-logs:
-    driver: local
-  crowdsec-db:
-    driver: local
-  crowdsec-config:
-    driver: local
+  postgres-mlflow-data:
+  traefik-certs:
 
 networks:
   mlops-network:
