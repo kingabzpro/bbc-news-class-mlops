@@ -146,7 +146,7 @@ services:
     #   dockerfile: Dockerfile
     environment:
       API_KEY: ${API_KEY}
-      MODEL_NAME: ${MODEL_NAME}
+      MODEL_NAME: ${MODEL_NAME:-news_classifier_logistic}
       MODEL_VERSION: ${MODEL_VERSION:-1}
       CACHE_TTL: ${CACHE_TTL:-3600}
       KAGGLE_USERNAME: ${KAGGLE_USERNAME}
@@ -155,7 +155,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       PREFECT_API_URL: http://prefect:4200/api
       PREFECT_SERVER_API_URL: http://prefect:4200/api
-      RUN_PIPELINE: true
+      RUN_PIPELINE: ${RUN_PIPELINE:-true}
     env_file:
       - .env
     depends_on:

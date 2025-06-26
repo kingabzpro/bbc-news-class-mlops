@@ -80,7 +80,7 @@ echo "Giving services additional time to fully initialize..."\n\
 sleep 10\n\
 \n\
 # Check if pipeline should be run (optional - can be controlled via env var)\n\
-if [ "${RUN_PIPELINE:-false}" = "true" ]; then\n\
+if [ "${RUN_PIPELINE:-true}" = "true" ]; then\n\
     echo "Running pipeline..."\n\
     # Set timeout for pipeline execution\n\
     timeout 300 python -m src.pipelines.pipeline || {\n\
